@@ -1,7 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../app_settings.dart';
 import '../core/android_core.dart';
@@ -86,6 +85,11 @@ class VpnApp extends StatelessWidget {
   final AppSettings settings;
   final GlobalKey<NavigatorState>? navigatorKey;
 
+  static const localizationsDelegates = [
+    AppLocalizations.delegate,
+    ...GlobalMaterialLocalizations.delegates,
+  ];
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: settings,
@@ -97,12 +101,7 @@ class VpnApp extends StatelessWidget {
       supportedLocales: AppLocalizations.supportedLocales,
       localeListResolutionCallback: (locales, _) =>
           AppSettings.localeOf(AppSettings.languageForList(locales)),
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
+      localizationsDelegates: localizationsDelegates,
       // The theme depends on the resolved language for its font.
       builder: (context, child) {
         final locale = Localizations.localeOf(context);

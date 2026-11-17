@@ -171,6 +171,11 @@ Chinese, and Russian. Strings are in
 `lib/l10n/app_*.arb`; `flutter gen-l10n` (or any build) generates
 `lib/l10n/app_localizations*.dart`.
 
+Persian is written without hamza or tanween marks, as it is in everyday use:
+"تایید", "تاخیر", not "تأیید", "تأخیر"; "پنجره برنامه", not "پنجرهٔ برنامه";
+"لطفا", "مثلا", not "لطفاً", "مثلاً". The
+same holds for the Persian README. A test checks the Persian strings for it.
+
 The first run shows a welcome page: language and country. The country is
 the core's routing region (`routing.region`). Android suggests it from the
 mobile network, SIM, then system country, independently of the UI language;

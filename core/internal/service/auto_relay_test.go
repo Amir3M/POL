@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -18,6 +21,7 @@ import (
 
 	"github.com/armanlife/arman-vpn-client/core/internal/config"
 	"github.com/armanlife/arman-vpn-client/core/internal/controlplane"
+	"github.com/armanlife/arman-vpn-client/core/internal/evasion"
 	"github.com/armanlife/arman-vpn-client/core/internal/guardian"
 )
 
@@ -117,12 +121,18 @@ type relayPoolFixture struct {
 	health         map[string]int
 	status         map[string]int
 	bareResponse   map[string]bool
+	weights        map[string]int
 	manifestStatus int
 }
 
 func newRelayPoolFixture(t *testing.T) *relayPoolFixture {
 	t.Helper()
 	f := &relayPoolFixture{t: t, enabled: true, health: map[string]int{}, status: map[string]int{}, bareResponse: map[string]bool{}, manifestStatus: 200}
+	// The pool is only for builds that can authorize a pooled request, so
+	// the fixture registers a profile that does. It also asserts that the
+	// client really sends the proof it was given.
+	evasion.Register(stubProfile{})
+	t.Cleanup(func() { evasion.Register(nil) })
 	f.server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
@@ -134,7 +144,7 @@ func newRelayPoolFixture(t *testing.T) *relayPoolFixture {
 		}
 		if r.URL.Path == "/manifest" {
 			w.WriteHeader(f.manifestStatus)
-			json.NewEncoder(w).Encode(map[string]any{"relays": map[string]any{"enabled": f.enabled, "urls": f.urls}})
+			json.NewEncoder(w).Encode(map[string]any{"relays": map[string]any{"nodes": f.nodes()}})
 			return
 		}
 		if r.URL.Query().Get("health") == "1" {
@@ -142,7 +152,10 @@ func newRelayPoolFixture(t *testing.T) *relayPoolFixture {
 				t.Error("health must not carry account credentials or cookies")
 			}
 			if r.URL.Query().Get("secret") != "fixture" {
-				t.Error("worker secret was not retained")
+				t.Error("endpoint secret was not retained")
+			}
+			if r.URL.Query().Get("t") != stubToken("GET", "health") {
+				t.Errorf("health was not authorized for the probe: %q", r.URL.Query().Get("t"))
 			}
 			status := f.health[r.URL.Path]
 			if status == 0 {
@@ -157,6 +170,9 @@ func newRelayPoolFixture(t *testing.T) *relayPoolFixture {
 		}
 		if r.Header.Get("Authorization") != "Bearer fixture" {
 			t.Error("missing authenticated request")
+		}
+		if want := stubToken(r.Method, "https://vpn.mozilla.org/api/v1/fpn/token"); r.URL.Query().Get("t") != want {
+			t.Errorf("the request was not authorized for its target: %q", r.URL.Query().Get("t"))
 		}
 		status := f.status[r.URL.Path]
 		if status == 0 {
@@ -177,7 +193,53 @@ func newRelayPoolFixture(t *testing.T) *relayPoolFixture {
 	f.pool.client = f.server.Client()
 	f.pool.transport = func(*url.URL) (http.RoundTripper, error) { return f.server.Client().Transport, nil }
 	f.pool.shuffle = func(int, func(int, int)) {}
+	// Keep the manifest's order, so a test can say which node is tried first.
+	f.pool.random = func() float64 { return 1 }
 	return f
+}
+
+// stubProfile stands in for the optional build profile: it authorizes with a
+// value the fixture can recompute, so the tests prove the proof travels and
+// is bound to the method and target.
+type stubProfile struct{}
+
+func (stubProfile) Name() string { return "stub" }
+
+func (stubProfile) Authorize(method, target string) url.Values {
+	return url.Values{"ts": {"1700000000"}, "t": {stubToken(method, target)}}
+}
+
+func stubToken(method, target string) string {
+	sum := sha256.Sum256([]byte("stub\n" + method + "\n" + target))
+	return hex.EncodeToString(sum[:])
+}
+
+// nodeID is the id the fixture gives the node at a URL.
+func (f *relayPoolFixture) nodeID(raw string) string {
+	for i, have := range f.urls {
+		if have == raw {
+			return fmt.Sprintf("n%d", i)
+		}
+	}
+	return ""
+}
+
+// nodes is the manifest's relay section for the fixture's URLs.
+func (f *relayPoolFixture) nodes() []map[string]any {
+	if !f.enabled {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(f.urls))
+	for i, raw := range f.urls {
+		weight := 1
+		if f.weights[raw] > 0 {
+			weight = f.weights[raw]
+		}
+		out = append(out, map[string]any{
+			"id": fmt.Sprintf("n%d", i), "kind": relayKindWorker, "url": raw, "weight": weight,
+		})
+	}
+	return out
 }
 
 func (f *relayPoolFixture) relay(path string) string { return f.server.URL + path + "?secret=fixture" }
@@ -215,16 +277,42 @@ func TestAutomaticRelayChecksHealthBeforeAuthenticationAndSkipsDeadWorker(t *tes
 	}
 }
 
-func TestAutomaticRelayShufflesAndRotatesAfterGuardian451(t *testing.T) {
+func TestAutomaticRelayPrefersWeightAndRotatesPastGuardian451(t *testing.T) {
 	f := newRelayPoolFixture(t)
 	f.urls = []string{f.relay("/good"), f.relay("/blocked")}
 	f.status["/blocked"] = 451
-	var shuffled bool
-	f.pool.shuffle = func(n int, swap func(int, int)) { shuffled = true; swap(0, n-1) }
+	// The heavier node is tried first even though it is second in the list,
+	// and a node that still answers 451 is passed over for one that works.
+	f.weights = map[string]int{f.relay("/blocked"): 100}
+	// Equal draws keep the manifest's order; a draw below one lets the
+	// weights separate the keys, which is what this test is about.
+	f.pool.random = func() float64 { return 0.5 }
 	resp := f.recover()
 	resp.Body.Close()
-	if !shuffled || f.requests[1] != "/blocked?health=1" || f.pool.active != f.relay("/good") {
-		t.Fatalf("selection: %v", f.requests)
+	if f.requests[1] != "/blocked?health=1" || f.pool.active != f.nodeID(f.relay("/good")) {
+		t.Fatalf("selection: %v active=%s", f.requests, f.pool.active)
+	}
+}
+
+func TestAutomaticRelayWeightsBiasOrderWithoutExcludingAnyone(t *testing.T) {
+	nodes := []relayNode{{id: "light", weight: 1}, {id: "heavy", weight: 50}}
+	first := map[string]int{}
+	// A deterministic stand-in for a random source: each node must draw its
+	// own value, as it does in production.
+	state := uint64(1)
+	random := func() float64 {
+		state = state*6364136223846793005 + 1442695040888963407
+		return float64(state>>11) / float64(uint64(1)<<53)
+	}
+	for i := 0; i < 2000; i++ {
+		order := weightedOrder(nodes, random)
+		first[order[0].id]++
+	}
+	if first["heavy"] <= first["light"] {
+		t.Fatalf("weight did not bias the order: %v", first)
+	}
+	if first["light"] == 0 {
+		t.Fatal("a light node must still be reachable")
 	}
 }
 
@@ -239,8 +327,8 @@ func TestAutomaticRelaySupportsVariableListsAndIgnoresUnsafeAddresses(t *testing
 	f.urls = append(f.urls, f.relay("/good"), f.relay("/good"))
 	resp := f.recover()
 	resp.Body.Close()
-	if len(f.pool.urls) != 13 || len(f.requests) != 15 {
-		t.Fatalf("list/probes: %d/%d", len(f.pool.urls), len(f.requests))
+	if len(f.pool.nodes) != 13 || len(f.requests) != 15 {
+		t.Fatalf("list/probes: %d/%d", len(f.pool.nodes), len(f.requests))
 	}
 }
 
@@ -266,7 +354,7 @@ func TestAutomaticRelayManifestMirrorAndShortFailureCache(t *testing.T) {
 		t.Fatal(f.requests)
 	}
 	f.pool.active = ""
-	f.pool.urls = nil
+	f.pool.nodes = nil
 	f.pool.refreshAt = time.Time{}
 	f.manifestStatus = 503
 	req, _ := http.NewRequest(http.MethodGet, "https://vpn.mozilla.org/api/v1/fpn/token", nil)
@@ -329,7 +417,7 @@ func TestAutomaticRelayRejectsQuotaAndAvailabilityErrors(t *testing.T) {
 					t.Fatal("account credential sent to unavailable worker")
 				}
 			}
-			if f.pool.active != f.relay("/good") {
+			if f.pool.active != f.nodeID(f.relay("/good")) {
 				t.Fatal("healthy worker was not selected")
 			}
 		})
@@ -358,7 +446,7 @@ func TestAutomaticRelayQuotaFailureAfterSuccessfulHealthTriesNextWorker(t *testi
 	f.bareResponse["/quota-race"] = true
 	resp := f.recover()
 	resp.Body.Close()
-	if f.pool.active != f.relay("/good") {
+	if f.pool.active != f.nodeID(f.relay("/good")) {
 		t.Fatal("worker quota failure was mistaken for account quota")
 	}
 }

@@ -9,15 +9,14 @@
 
 <h1 align="center">Arman VPN</h1>
 
-<h2 align="center">⚠️ 非官方项目</h2>
-
-<h3 align="center">Arman VPN 是一个独立项目，并非由 Mozilla 开发、拥有、赞助或认可，与 Mozilla 没有任何关联。参见<a href="#免责声明">免责声明</a>。</h3>
+<p align="center"><b>非官方项目.</b> Arman VPN 是一个独立项目，并非由 Mozilla 开发、拥有、赞助或认可，与 Mozilla 没有任何关联。参见<a href="#免责声明">免责声明</a>。</p>
 
 <div align="center">
 
 [![Downloads](https://img.shields.io/github/downloads/armanlife/arman-vpn-client/total?style=flat-square&logo=github&label=Downloads)](https://github.com/armanlife/arman-vpn-client/releases)
 [![Last Version](https://img.shields.io/github/v/release/armanlife/arman-vpn-client?style=flat-square&label=Version)](https://github.com/armanlife/arman-vpn-client/releases/latest)
 [![License](https://img.shields.io/github/license/armanlife/arman-vpn-client?style=flat-square&label=License)](../../LICENSE)
+[![Telegram](https://img.shields.io/badge/Telegram-ArmanVPNClient-26A5E4?style=flat-square&logo=telegram&logoColor=white)](https://t.me/ArmanVPNClient)
 
 </div>
 

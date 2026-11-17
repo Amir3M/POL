@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:arman_vpn/app_info.dart';
 import 'package:arman_vpn/app_settings.dart';
 import 'package:arman_vpn/core/core_api.dart';
 import 'package:arman_vpn/core/core_controller.dart';
+import 'package:arman_vpn/ui/overview_page.dart' show debugContourPaints;
 import 'package:arman_vpn/core/models.dart';
 import 'package:arman_vpn/core/relay_test.dart';
 import 'package:arman_vpn/core/tun_service.dart';
@@ -254,7 +255,10 @@ class FakeApi implements CoreApi {
   int pings = 0;
 
   @override
-  Future<LocationList> pingLocations(List<String> codes) async {
+  Future<LocationList> pingLocations(
+    List<String> codes, {
+    bool fresh = false,
+  }) async {
     pings++;
     return locations();
   }
@@ -395,6 +399,7 @@ void stillMotion(WidgetTester tester) {
 }
 
 void main() {
+  _connectingRingTests();
   testWidgets('shows the state, turns the VPN off, lists accounts', (
     tester,
   ) async {
@@ -555,7 +560,7 @@ void main() {
     core.start();
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: VpnApp.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Builder(
           builder: (context) => TextButton(
@@ -649,7 +654,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: VpnApp.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Builder(
           builder: (context) => TextButton(
@@ -702,7 +707,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: VpnApp.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Builder(
           builder: (context) => TextButton(
@@ -757,7 +762,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('fa'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: VpnApp.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Builder(
           builder: (context) => TextButton(
@@ -807,7 +812,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('fa'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: VpnApp.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Builder(
           builder: (context) => TextButton(
@@ -852,7 +857,7 @@ void main() {
     core.start();
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: VpnApp.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Builder(
           builder: (context) => TextButton(
@@ -925,7 +930,7 @@ void main() {
     CloseChoice? choice;
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: VpnApp.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Builder(
           builder: (context) => TextButton(
@@ -1617,7 +1622,11 @@ void main() {
     core.dispose();
   });
 
-  for (final size in [const Size(430, 1000), const Size(1200, 1400)]) {
+  for (final size in [
+    const Size(320, 568),
+    const Size(430, 1000),
+    const Size(1200, 1400),
+  ]) {
     testWidgets(
       'relay diagnostics use the unsaved address and show live logs at $size',
       (tester) async {
@@ -1625,8 +1634,10 @@ void main() {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
+        final language = size.width == 320 ? 'fa' : 'en';
+        final l = lookupAppLocalizations(Locale(language));
         final events = StreamController<RelayTestEvent>();
-        addTearDown(events.close);
+        addTearDown(() => unawaited(events.close()));
         final api = FakeApi()..relayEvents = events.stream;
         api.config['network'] = {
           'api_relay': '',
@@ -1638,24 +1649,38 @@ void main() {
           () async => api,
           pollInterval: const Duration(hours: 1),
         );
-        await tester.pumpWidget(VpnApp(core: core, settings: AppSettings()));
+        await tester.pumpWidget(
+          VpnApp(core: core, settings: AppSettings()..language = language),
+        );
         core.start();
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Settings'));
+        await tester.tap(find.text(l.navSettings));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Relay server'));
+        final relayRow = find.text(l.apiRelay);
+        await tester.scrollUntilVisible(
+          relayRow,
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tester.pumpAndSettle();
-        final button = find.widgetWithText(OutlinedButton, 'Test relay health');
+        await tester.tap(relayRow);
+        await tester.pumpAndSettle();
+        final button = find.widgetWithText(OutlinedButton, l.testRelay);
         expect(tester.widget<OutlinedButton>(button).onPressed, isNull);
         await tester.enterText(
-          find.widgetWithText(TextField, 'Relay server'),
+          find.widgetWithText(TextField, l.apiRelay),
           'https://relay.example/?secret=fixture-secret',
         );
         await tester.pump();
         await tester.ensureVisible(button);
+        await tester.pumpAndSettle();
         await tester.tap(button);
         await tester.pump(const Duration(milliseconds: 300));
-        expect(find.text('Relay health test'), findsOneWidget);
+        final dialog = find.byType(AlertDialog);
+        expect(
+          find.descendant(of: dialog, matching: find.text(l.relayTestTitle)),
+          findsOneWidget,
+        );
         expect(
           api.relayTestAddress,
           'https://relay.example/?secret=fixture-secret',
@@ -1692,13 +1717,24 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(
-          find.text('Relay health could not be confirmed'),
+          find.text(l.relayTestFailed),
           findsOneWidget,
         );
         expect(find.textContaining('HTTP 429:'), findsOneWidget);
+        final closeButton = find.widgetWithText(FilledButton, l.close);
+        final copyLabel = tester.getRect(find.text(l.relayTestCopy));
+        final retryLabel = tester.getRect(find.text(l.retry));
+        final closeRect = tester.getRect(closeButton);
+        if (size.width < 480) {
+          expect(copyLabel.center.dy, closeTo(retryLabel.center.dy, 1));
+          expect(closeRect.top, greaterThan(copyLabel.bottom));
+          expect(closeRect.width, greaterThan(size.width * .75));
+        } else {
+          expect(closeRect.center.dy, closeTo(copyLabel.center.dy, 1));
+        }
         expect(
           find.descendant(
-            of: find.byType(AlertDialog),
+            of: dialog,
             matching: find.textContaining('fixture-secret'),
           ),
           findsNothing,
@@ -1719,13 +1755,13 @@ void main() {
             null,
           ),
         );
-        await tester.tap(find.text('Copy report'));
+        await tester.tap(find.text(l.relayTestCopy));
         await tester.pump();
         expect(copiedReport, contains('HTTP 429:'));
         expect(copiedReport, isNot(contains('fixture-secret')));
         expect(jsonEncode(api.config), before);
         expect(tester.takeException(), isNull);
-        await tester.tap(find.widgetWithText(FilledButton, 'Close'));
+        await tester.tap(closeButton);
         await tester.pumpAndSettle();
         await tester.pumpWidget(const SizedBox());
         core.dispose();
@@ -1845,13 +1881,17 @@ void main() {
     await tester.tap(find.text('TLS fragmentation'));
     await tester.pumpAndSettle();
 
-    // Off by default.
+    // Automatic by default.
     bool selected(String label) =>
         tester
             .widget<RadioGroup<String>>(find.byType(RadioGroup<String>).last)
             .groupValue ==
         label;
-    expect(selected('off'), isTrue);
+    expect(selected('auto'), isTrue);
+    expect(
+      find.text('Tries other methods if the normal connection fails.'),
+      findsOneWidget,
+    );
     expect(find.text('Normal TLS connection'), findsOneWidget);
     expect(
       find.text('Splits the TLS header at the first byte (0x16)'),
@@ -2587,7 +2627,11 @@ void main() {
     expect((control.center.dy - label.center.dy).abs(), lessThan(24));
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('سرور رله'), 200);
+    await tester.scrollUntilVisible(
+      find.text('سرور رله'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('سرور رله'));
     await tester.pumpAndSettle();
     // A text setting's Save goes under its field, which keeps the width.
@@ -2985,6 +3029,7 @@ void main() {
       Map<String, Object?>? update,
       List<String> args = const [],
       Release? found,
+      String known = '',
     }) async {
       stillMotion(tester);
       tester.view.physicalSize = const Size(1200, 900);
@@ -2995,7 +3040,7 @@ void main() {
         () async => api,
         pollInterval: const Duration(hours: 1),
       );
-      final settings = AppSettings();
+      final settings = AppSettings()..updateVersion = known;
       Updates.start(core, settings, args: args);
       Updates.available.value = found;
       await tester.pumpWidget(VpnApp(core: core, settings: settings));
@@ -3258,6 +3303,26 @@ void main() {
       expect(api.installs.single.$2, ['--autostart', '--data-dir=elsewhere']);
       expect(Updates.installingAtStart.value, isTrue);
       expect(quit, 1);
+      await done(tester, core);
+    });
+
+    testWidgets('a download that a newer release replaced is not installed', (
+      tester,
+    ) async {
+      var quit = 0;
+      Updates.quitApp = () async => quit++;
+      // 9.9.8 was downloaded and left; 9.9.9 has been found since.
+      final (api, core, _) = await pumpUpdates(
+        tester,
+        update: {'state': 'ready', 'version': '9.9.8'},
+        known: '9.9.9',
+        found: const Release('9.9.9', page),
+      );
+      expect(api.installs, isEmpty);
+      expect(Updates.installingAtStart.value, isFalse);
+      expect(quit, 0);
+      // The newer one is fetched instead.
+      expect(api.downloads, contains('9.9.9'));
       await done(tester, core);
     });
 
@@ -3833,4 +3898,152 @@ class FakeTunService implements TunService {
     }
     return result;
   }
+}
+
+// Connecting can take half a minute when Mozilla is slow, and the button
+// used to sit still through it, which reads as a tap that did nothing. A
+// ring moves while it waits. It must exist only while connecting, so a
+// connected or idle app animates nothing, and it must respect the system's
+// "reduce motion" setting.
+void _connectingRingTests() {
+  Finder ring() => find.byWidgetPredicate(
+    (w) => w.runtimeType.toString() == '_ConnectingRing',
+  );
+
+  for (final desktop in [false, true]) {
+    final layout = desktop ? 'desktop' : 'phone';
+    testWidgets('the $layout home moves a ring only while connecting', (
+      tester,
+    ) async {
+      stillMotion(tester);
+      tester.view.physicalSize = desktop
+          ? const Size(1200, 900)
+          : const Size(400, 860);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final l = await AppLocalizations.delegate.load(const Locale('en'));
+      final api = FakeApi()
+        ..systemProxySupported = desktop
+        ..on = false;
+      final core = CoreController(
+        () async => api,
+        pollInterval: const Duration(hours: 1),
+        turnOn: (on) async => api.connectPending = on,
+      );
+      await tester.pumpWidget(VpnApp(core: core, settings: AppSettings()));
+      core.start();
+      await tester.pumpAndSettle();
+
+      // Off: nothing animates.
+      expect(ring(), findsNothing);
+
+      await tester.tap(
+        find.byTooltip(desktop ? l.tapToConnect : l.tapToConnectPhone),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(l.stateConnecting), findsOneWidget);
+      expect(ring(), findsOneWidget, reason: 'the wait must show progress');
+
+      // Connected and confirmed: the ring goes away again.
+      api
+        ..on = true
+        ..connectPending = false;
+      await core.refresh();
+      await core.runTest();
+      await tester.pumpAndSettle();
+      expect(find.text(l.stateConnected), findsOneWidget);
+      expect(
+        ring(),
+        findsNothing,
+        reason: 'a connected app must animate nothing',
+      );
+
+      await tester.pumpWidget(const SizedBox());
+      core.dispose();
+    });
+  }
+
+  // Painting the contour lines costs some 3,400 trigonometric calls, so the
+  // drift must never repaint them: they rasterize once and the rotation
+  // transforms that finished layer. A RepaintBoundary on the wrong side of
+  // the rotation would look identical and quietly cost that per frame.
+  testWidgets('the drifting background is transformed, never repainted', (
+    tester,
+  ) async {
+    // Motion stays on: this test is about what the frames cost.
+    tester.view.physicalSize = const Size(400, 860);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final api = FakeApi()..on = false;
+    final core = CoreController(
+      () async => api,
+      pollInterval: const Duration(hours: 1),
+      turnOn: (on) async => api.connectPending = on,
+    );
+    await tester.pumpWidget(VpnApp(core: core, settings: AppSettings()));
+    core.start();
+    await tester.pump(const Duration(milliseconds: 100));
+    api.connectPending = true;
+    await core.refresh();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+
+    expect(ring(), findsOneWidget, reason: 'the connecting state must be on');
+    final painted = debugContourPaints;
+
+    // A second of frames, which the arc animates through.
+    for (var frame = 0; frame < 60; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(
+      tester.binding.hasScheduledFrame,
+      isTrue,
+      reason: 'the frames must really be running, or this proves nothing',
+    );
+    expect(
+      debugContourPaints,
+      painted,
+      reason: 'the contour lines were repainted while drifting',
+    );
+
+    await tester.pumpWidget(const SizedBox());
+    core.dispose();
+  });
+
+  // A repeating animation would hang pumpAndSettle, and a user who turned
+  // motion off should not have a ring spinning on their screen either.
+  testWidgets('the connecting ring stands still when motion is off', (
+    tester,
+  ) async {
+    stillMotion(tester);
+    tester.view.physicalSize = const Size(400, 860);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final api = FakeApi()..on = false;
+    final core = CoreController(
+      () async => api,
+      pollInterval: const Duration(hours: 1),
+      turnOn: (on) async => api.connectPending = on,
+    );
+    await tester.pumpWidget(VpnApp(core: core, settings: AppSettings()));
+    core.start();
+    await tester.pumpAndSettle();
+
+    api.connectPending = true;
+    await core.refresh();
+    // It settles: with motion off the ring schedules no further frames.
+    await tester.pumpAndSettle();
+    expect(ring(), findsOneWidget);
+    expect(
+      tester.binding.hasScheduledFrame,
+      isFalse,
+      reason: 'motion off must leave no animation running',
+    );
+
+    await tester.pumpWidget(const SizedBox());
+    core.dispose();
+  });
 }

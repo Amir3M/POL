@@ -49,13 +49,25 @@ func guardianURL(endpoint, path string) string {
 }
 
 func fetchProxyPass(ctx context.Context, endpoint, accessToken string) (*ProxyPassInfo, error) {
+	return fetchProxyPassWith(ctx, endpoint, accessToken, do)
+}
+
+func fetchProxyPassWith(ctx context.Context, endpoint, accessToken string, send func(*http.Request) (*http.Response, error)) (*ProxyPassInfo, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, guardianURL(endpoint, "/api/v1/fpn/token"), nil)
 	if err != nil {
 		return nil, err
 	}
 	applyGuardianHeaders(req, accessToken)
+	var acceptRoute func(bool)
+	validPass := false
+	defer func() {
+		if acceptRoute != nil {
+			acceptRoute(validPass)
+		}
+	}()
+	req = withTokenRoute(req, &acceptRoute)
 
-	resp, err := do(req)
+	resp, err := send(req)
 	if err != nil {
 		return nil, fmt.Errorf("guardian request failed: %w", err)
 	}
@@ -100,6 +112,7 @@ func fetchProxyPass(ctx context.Context, endpoint, accessToken string) (*ProxyPa
 		ReceivedAt:      receivedAt,
 		claimTimeOffset: offset,
 	}
+	validPass = info.ExpiresAt().After(time.Now())
 	return info, nil
 }
 

@@ -47,6 +47,11 @@ class AppRouting {
 
   Set<String> get _chosen => onlyChosen ? only : bypass;
 
+  /// The number of chosen apps.
+  int get chosenCount => _chosen.length;
+
+  List<String> get chosenPackages => _chosen.toList()..sort();
+
   /// Whether [package] is checked in the current mode.
   bool checked(String package) => _chosen.contains(package);
 
@@ -54,6 +59,17 @@ class AppRouting {
     on ? _chosen.add(package) : _chosen.remove(package);
     if (!onlyChosen && suggested.contains(package)) {
       on ? declined.remove(package) : declined.add(package);
+    }
+  }
+
+  void importPackages(Set<String> packages, {required bool merge}) {
+    if (!merge) {
+      for (final package in _chosen.difference(packages)) {
+        toggle(package, false);
+      }
+    }
+    for (final package in packages) {
+      toggle(package, true);
     }
   }
 
@@ -131,21 +147,21 @@ class AndroidCore {
   /// run; it throws [CoreUnavailable] until the core answers.
   Future<CoreApi> connect() async {
     if (await _channel.invokeMethod<bool>('isRunning') != true) {
-      await _channel.invokeMethod<void>('startCore');
+      final error = await _channel.invokeMethod<String>('startCore');
+      if (error != null) throw CoreUnavailable(CoreProblem.exited, error);
       throw const CoreUnavailable(CoreProblem.starting);
     }
-    try {
-      final api = CoreApi(await CoreLocator.locate(_dataDir));
-      try {
-        await api.status();
-        return api;
-      } on Exception {
-        api.close();
-        rethrow;
-      }
-    } on CoreUnavailable {
-      // Started, and its API is still coming up.
+    final listen = await _channel.invokeMethod<String>('dashboardAddress');
+    if (listen == null || listen.isEmpty) {
       throw const CoreUnavailable(CoreProblem.starting);
+    }
+    final api = CoreApi(await CoreLocator.locate(_dataDir, listen: listen));
+    try {
+      await api.status();
+      return api;
+    } on Exception {
+      api.close();
+      rethrow;
     }
   }
 
@@ -164,10 +180,30 @@ class AndroidCore {
   /// apps set up to use the local proxy). Read at start ([loadMode]).
   static final mode = ValueNotifier<String>('vpn');
 
+  /// The routing sub-mode on Android: 'all' (all apps) or 'selected' (bypass/only apps).
+  static final appRoutingMode = ValueNotifier<String>('all');
+
+  /// The count of selected apps in app routing.
+  static final selectedAppsCount = ValueNotifier<int>(0);
+
+  /// Whether per-app routing is enabled (selected apps vs all apps).
+  static Future<bool> routingEnabled() async =>
+      await _channel.invokeMethod<bool>('routingEnabled') ?? false;
+
+  /// Sets whether per-app routing is enabled.
+  static Future<void> setRoutingEnabled(bool on) async =>
+      await _channel.invokeMethod<void>('setRoutingEnabled', {'on': on});
+
   static Future<void> loadMode() async {
     mode.value = await _channel.invokeMethod<String>('connectionMode') ?? 'vpn';
     showSpeed.value = await _channel.invokeMethod<bool>('showSpeed') ?? false;
     isTv = await _channel.invokeMethod<bool>('isTv') ?? false;
+    try {
+      final enabled = await routingEnabled();
+      final r = await appRouting();
+      appRoutingMode.value = enabled ? 'selected' : 'all';
+      selectedAppsCount.value = r.chosenCount;
+    } catch (_) {}
   }
 
   /// Whether this is a TV, worked with a remote: the home page then says

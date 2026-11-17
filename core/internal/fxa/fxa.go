@@ -530,18 +530,7 @@ func fxaRefreshToken(ctx context.Context, refreshToken string) (*TokenResponse, 
 		}
 		return req, nil
 	}
-	resp, err := fxaDoWith406Fallback(ctx, func() (*http.Request, error) {
-		return newRequest(fxaAuthServer + "/oauth/token")
-	}, func(ctx context.Context, solved int) (*http.Response, error) {
-		if solved != 0 {
-			return nil, nil
-		}
-		req, err := newRequest(fxaOAuthTokenURL)
-		if err != nil {
-			return nil, err
-		}
-		return refreshAtOAuthEndpoint(req.WithContext(ctx))
-	})
+	resp, err := requestOAuthRefresh(ctx, newRequest)
 	if err != nil {
 		return nil, fmt.Errorf("refresh request: %w", err)
 	}
@@ -564,6 +553,29 @@ func fxaRefreshToken(ctx context.Context, refreshToken string) (*TokenResponse, 
 		tok.RefreshToken = refreshToken
 	}
 	return &tok, nil
+}
+
+func requestOAuthRefresh(ctx context.Context, newRequest func(string) (*http.Request, error)) (*http.Response, error) {
+	const primary = fxaAuthServer + "/oauth/token"
+	req, err := newRequest(primary)
+	if err != nil {
+		return nil, err
+	}
+	if resp, err, handled := controlplane.TryRenewalTunnel(req); handled {
+		return resp, err
+	}
+	return fxaDoWith406Fallback(ctx, func() (*http.Request, error) {
+		return newRequest(primary)
+	}, func(ctx context.Context, solved int) (*http.Response, error) {
+		if solved != 0 {
+			return nil, nil
+		}
+		req, err := newRequest(fxaOAuthTokenURL)
+		if err != nil {
+			return nil, err
+		}
+		return refreshAtOAuthEndpoint(req.WithContext(ctx))
+	})
 }
 
 // Both Mozilla token endpoints use the same refresh-token store. The

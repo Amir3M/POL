@@ -31,8 +31,10 @@ const (
 )
 
 // automaticRelays is lazy: no metadata, worker probe or account request is
-// sent until a production Guardian request has already returned HTTP 451.
-// Candidate URLs and health state are in memory, never in user settings.
+// sent until a production Guardian request has already failed, either with
+// HTTP 451 or by not arriving at all (guardian.regionRecovery decides which
+// failures recover). Candidate URLs and health state are in memory, never in
+// user settings.
 type automaticRelays struct {
 	mu           sync.Mutex
 	network      config.Network
@@ -40,7 +42,8 @@ type automaticRelays struct {
 	client       *http.Client
 	transport    func(*url.URL) (http.RoundTripper, error)
 	shuffle      func(int, func(int, int))
-	urls         []string
+	random       func() float64
+	nodes        []relayNode
 	refreshAt    time.Time
 	active       string
 	activeUntil  time.Time
@@ -58,6 +61,7 @@ func newAutomaticRelays(n config.Network) *automaticRelays {
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		},
 		shuffle:  rand.Shuffle,
+		random:   defaultRandom,
 		badUntil: make(map[string]time.Time),
 	}
 	// The app and desktop updater already use this local release server in
@@ -124,42 +128,19 @@ func (a *automaticRelays) load(ctx context.Context) {
 		if readErr != nil || resp.StatusCode != http.StatusOK || len(body) > maxRelayManifest {
 			continue
 		}
-		var manifest struct {
-			Relays *struct {
-				Enabled bool     `json:"enabled"`
-				URLs    []string `json:"urls"`
-			} `json:"relays"`
-		}
 		var root map[string]json.RawMessage
-		if json.Unmarshal(body, &root) != nil || root == nil || json.Unmarshal(body, &manifest) != nil {
+		if json.Unmarshal(body, &root) != nil || root == nil {
 			continue
 		}
-		var candidates []string
+		nodes := parseRelayNodes(root["relays"])
 		seen := map[string]bool{}
-		if manifest.Relays != nil && manifest.Relays.Enabled {
-			for _, raw := range manifest.Relays.URLs {
-				u, err := url.Parse(strings.TrimSpace(raw))
-				if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.Fragment != "" {
-					continue
-				}
-				q := u.Query()
-				if q.Has("url") || q.Has("health") {
-					continue
-				}
-				raw = u.String()
-				if !seen[raw] {
-					candidates = append(candidates, raw)
-					seen[raw] = true
-				}
-				if len(candidates) >= 100 {
-					break
-				}
-			}
+		for _, node := range nodes {
+			seen[node.id] = true
 		}
-		a.urls = candidates
-		for raw := range a.badUntil {
-			if !seen[raw] {
-				delete(a.badUntil, raw)
+		a.nodes = nodes
+		for id := range a.badUntil {
+			if !seen[id] {
+				delete(a.badUntil, id)
 			}
 		}
 		a.refreshAt = time.Now().Add(10 * time.Minute)
@@ -167,27 +148,33 @@ func (a *automaticRelays) load(ctx context.Context) {
 			a.active = ""
 			a.activeUntil = time.Time{}
 		}
-		logx.Info("automatic Guardian relay list loaded candidates=%d", len(candidates))
+		logx.Info("automatic Guardian relay list loaded candidates=%d", len(nodes))
 		return
 	}
 	// A failed refresh does not invent another metadata source or erase a
 	// previously fetched list. The next 451 retries the refresh after a minute.
 }
 
-func (a *automaticRelays) healthy(ctx context.Context, relay *url.URL, base http.RoundTripper) bool {
-	u := *relay
-	query := u.Query()
-	query.Set("health", "1")
-	u.RawQuery = query.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+// healthy probes one node before any account credential is sent to it. A
+// fronted node cannot pass a status code through, so the probe is judged on
+// the answer's content, which is the same judgement for both shapes.
+func (a *automaticRelays) healthy(ctx context.Context, node relayNode, base http.RoundTripper) bool {
+	transport := &relayPoolTransport{node: node, base: base}
+	probe, ok := transport.probeURL()
+	if !ok {
+		// This build authorizes nothing, so it must not use the pool.
+		return false
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, probe, nil)
 	if err != nil {
 		return false
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Cache-Control", "no-cache")
-	client := &http.Client{
-		Transport: base, Timeout: 2 * relayProbeTimeout,
-		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	client := &http.Client{Transport: base, Timeout: 2 * relayProbeTimeout}
+	if !node.envelope() {
+		// A Worker answers directly; only a front has to be followed.
+		client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -198,19 +185,18 @@ func (a *automaticRelays) healthy(ctx context.Context, relay *url.URL, base http
 		if errors.Is(err, context.Canceled) {
 			why = "cancelled"
 		}
-		logx.Info("automatic relay health failed host=%s reason=%s", relay.Hostname(), why)
+		logx.Info("automatic relay health failed node=%s reason=%s", node.id, why)
 		return false
 	}
 	defer resp.Body.Close()
 	var report struct {
-		Relay   string `json:"relay"`
-		Version int    `json:"version"`
-		Ready   bool   `json:"ready"`
+		Relay string `json:"relay"`
+		Ready bool   `json:"ready"`
 	}
 	valid := resp.StatusCode == http.StatusOK &&
 		json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&report) == nil &&
-		report.Relay == "arman-vpn" && report.Version == 1 && report.Ready
-	logx.Info("automatic relay health host=%s http=%d ready=%t", relay.Hostname(), resp.StatusCode, valid)
+		report.Relay == "arman-vpn" && report.Ready
+	logx.Info("automatic relay health node=%s http=%d ready=%t", node.id, resp.StatusCode, valid)
 	return valid
 }
 
@@ -241,22 +227,25 @@ func (a *automaticRelays) recover(req *http.Request) (*http.Response, error) {
 		clear(a.badUntil)
 		a.networkKey = network
 	}
-	order := append([]string(nil), a.urls...)
-	a.shuffle(len(order), func(i, j int) { order[i], order[j] = order[j], order[i] })
+	// A heavier weight comes first more often, so a fast Worker is preferred
+	// while a slower fronted endpoint still serves when the Worker is gone.
+	order := weightedOrder(a.nodes, a.random)
 	if a.active != "" && time.Now().Before(a.activeUntil) {
-		order = append([]string{a.active}, order...)
+		for i, node := range order {
+			if node.id == a.active {
+				order = append([]relayNode{node}, append(order[:i:i], order[i+1:]...)...)
+				break
+			}
+		}
 	}
-	seen := map[string]bool{}
-	for _, raw := range order {
+	for _, node := range order {
 		if ctx.Err() != nil {
 			break
 		}
-		if seen[raw] || time.Now().Before(a.badUntil[raw]) {
+		if time.Now().Before(a.badUntil[node.id]) {
 			continue
 		}
-		seen[raw] = true
-		u, _ := url.Parse(raw)
-		base, err := a.transport(u)
+		base, err := a.transport(node.url)
 		if err != nil {
 			continue
 		}
@@ -264,8 +253,8 @@ func (a *automaticRelays) recover(req *http.Request) (*http.Response, error) {
 		if closeIdle != nil {
 			defer closeIdle.CloseIdleConnections()
 		}
-		if !a.healthy(ctx, u, base) {
-			a.badUntil[raw] = time.Now().Add(time.Minute)
+		if !a.healthy(ctx, node, base) {
+			a.badUntil[node.id] = time.Now().Add(time.Minute)
 			continue
 		}
 		out := req.Clone(ctx)
@@ -275,26 +264,26 @@ func (a *automaticRelays) recover(req *http.Request) (*http.Response, error) {
 				return nil, err
 			}
 		}
-		resp, err := (&relayTransport{relay: u, base: base}).RoundTrip(out)
+		resp, err := (&relayPoolTransport{node: node, base: base}).RoundTrip(out)
 		if resp != nil {
-			logx.Info("automatic relay Guardian response host=%s http=%d forwarded=%t", u.Hostname(), resp.StatusCode, resp.Header.Get("X-Arman-Relay") == "1")
+			logx.Info("automatic relay Guardian response node=%s http=%d forwarded=%t", node.id, resp.StatusCode, resp.Header.Get("X-Arman-Relay") == "1")
 		} else if err != nil {
-			logx.Info("automatic relay Guardian request failed host=%s", u.Hostname())
+			logx.Info("automatic relay Guardian request failed node=%s", node.id)
 		}
 		if err == nil && usableGuardianRelayResponse(req, resp) {
 			// RoundTrip's body still uses ctx. Keep its deadline alive until
 			// the caller closes it rather than cancelling on this return.
 			resp.Body = &automaticRelayBody{ReadCloser: resp.Body, cancel: cancel}
 			handedOff = true
-			a.active, a.activeUntil = raw, time.Now().Add(relayFirstFor)
+			a.active, a.activeUntil = node.id, time.Now().Add(relayFirstFor)
 			resp.Request = req
-			logx.Info("Guardian HTTP 451 recovered through a healthy automatic relay")
+			logx.Info("Guardian recovered through a healthy automatic relay node=%s", node.id)
 			return resp, nil
 		}
 		if resp != nil {
 			resp.Body.Close()
 		}
-		a.badUntil[raw] = time.Now().Add(time.Minute)
+		a.badUntil[node.id] = time.Now().Add(time.Minute)
 		if req.Method != http.MethodGet && req.Method != http.MethodHead &&
 			(err != nil || resp == nil || resp.StatusCode != http.StatusUnavailableForLegalReasons) {
 			break

@@ -446,11 +446,21 @@ func (e *proxyEngine) stop() {
 	e.routed.Close()
 }
 
-// refreshLocations fetches and filters the server list (unless an exact
-// server is configured) and keeps it for the dashboard's location choices.
+const serverListFreshFor = 24 * time.Hour
+
+// refreshLocations reuses a fresh server list and keeps a stale one available
+// when Remote Settings cannot be reached.
 func (d *Daemon) refreshLocations(cfg config.Config) []serverlist.Country {
 	if strings.TrimSpace(cfg.Proxy.Server) != "" {
 		return nil
+	}
+	d.locationsMu.Lock()
+	defer d.locationsMu.Unlock()
+	cached, savedAt, cacheErr := serverlist.LoadCache(d.paths.ServerList)
+	if age := time.Since(savedAt); cacheErr == nil && age >= 0 && age < serverListFreshFor {
+		if countries := d.filterLocations(cached, d.knownFirefoxVersion()); len(countries) > 0 {
+			return countries
+		}
 	}
 	// The Firefox version the records are evaluated for is looked up
 	// while the list downloads.
@@ -466,13 +476,16 @@ func (d *Daemon) refreshLocations(cfg config.Config) []serverlist.Country {
 	} else {
 		// The list changes rarely: the last one fetched does.
 		logx.Warn("fetching server list failed: %v", err)
-		if cached, savedAt, cacheErr := serverlist.LoadCache(d.paths.ServerList); cacheErr == nil {
+		if cacheErr == nil {
 			logx.Info("using the server list saved %s", savedAt.Local().Format("2006-01-02 15:04"))
 			countries = cached
 		}
 	}
-	var dropped []serverlist.FilteredRecord
-	countries, dropped = serverlist.Filter(countries, serverlist.Environment{FirefoxVersion: <-version})
+	return d.filterLocations(countries, <-version)
+}
+
+func (d *Daemon) filterLocations(countries []serverlist.Country, version string) []serverlist.Country {
+	countries, dropped := serverlist.Filter(countries, serverlist.Environment{FirefoxVersion: version})
 	for _, record := range dropped {
 		logx.Debug("server-list record skipped country_code=%s filter=%q reason=%s", record.Code, record.Expression, record.Reason)
 	}

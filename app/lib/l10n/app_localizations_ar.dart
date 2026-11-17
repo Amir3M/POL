@@ -153,6 +153,10 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get accountsGuideUnlimited =>
+      'حسابات Firefox لديها بيانات غير محدودة حاليًا.';
+
+  @override
   String accountsOrderNote(int percent) {
     return 'بترتيب هذه القائمة: كل حساب حتى $percent٪، والحساب الأخير حتى نفاد بياناته.';
   }
@@ -173,6 +177,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get delayTestFailed => 'تعذّر قياس تأخير الخوادم. تحقّق من الإنترنت.';
+
+  @override
+  String get delayFromLastTest => 'من الاختبار السابق';
 
   @override
   String get createAccountTitle => 'ليس لديك Firefox Account؟';
@@ -450,6 +457,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get settingsTitle => 'الإعدادات';
+
+  @override
+  String get settingsNoMatch => 'لا توجد نتائج';
 
   @override
   String get sectionGeneral => 'عام';
@@ -929,6 +939,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get tlsFragment => 'تجزئة TLS';
 
   @override
+  String get tlsFragmentAuto => 'تلقائي';
+
+  @override
+  String get tlsFragmentAutoHint =>
+      'يجرّب طرقًا أخرى إذا تعذّر إنشاء الاتصال العادي.';
+
+  @override
   String get tlsFragmentOff => 'معطّل';
 
   @override
@@ -1057,6 +1074,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get speedInNotification => 'عرض السرعة في الإشعار';
+
+  @override
+  String get showAppModeSwitch => 'تبديل سريع لوضع VPN';
 
   @override
   String get liveTraffic => 'حركة البيانات الآن';
@@ -1188,6 +1208,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get connectOnStartup => 'الاتصال تلقائيًا عند بدء التشغيل';
 
   @override
+  String get autostartShowsWindow => 'إظهار نافذة التطبيق';
+
+  @override
   String get proxyServiceActive => 'خدمة البروكسي تعمل';
 
   @override
@@ -1240,7 +1263,60 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dataUsedTitle => 'البيانات المستخدمة';
 
   @override
+  String get monthlyData => 'البيانات';
+
+  @override
   String get bypassApps => 'بروكسي لكل تطبيق';
+
+  @override
+  String get appClipboardImport => 'استيراد من الحافظة';
+
+  @override
+  String get appClipboardExport => 'تصدير إلى الحافظة';
+
+  @override
+  String get appClipboardUnavailable => 'تعذّر الوصول إلى الحافظة.';
+
+  @override
+  String get appClipboardNoMatches =>
+      'لا توجد تطبيقات مثبّتة تطابق أسماء الحزم في الحافظة.';
+
+  @override
+  String get appClipboardMerge => 'دمج';
+
+  @override
+  String get appClipboardReplace => 'استبدال';
+
+  @override
+  String appClipboardImportPrompt(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'عدد التطبيقات المثبّتة المطابقة هو $count. هل تريد إضافتها إلى التحديد الحالي أم استبداله بها؟',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardImported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'تم استيراد $count من التطبيقات.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardExported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'تم نسخ $count من أسماء الحزم.',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get connectRetrying => 'تعذّر الاتصال. تحقّق من الإنترنت.';
@@ -1328,6 +1404,26 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get appModeIncludeHint =>
       'تمر التطبيقات المحددة فقط عبر VPN؛ وتتصل البقية مباشرةً.';
+
+  @override
+  String get modeAllApps => 'كل التطبيقات';
+
+  @override
+  String get modeAllAppsHint => 'كل التطبيقات تمر عبر VPN';
+
+  @override
+  String get modeSelectedApps => 'التطبيقات المحددة';
+
+  @override
+  String get modeSelectedAppsHint => 'التطبيقات المحددة فقط';
+
+  @override
+  String selectedAppsCount(String count) {
+    return 'التطبيقات المحددة  $count';
+  }
+
+  @override
+  String get allTrafficThroughVpn => 'كل حركة بيانات الهاتف تمر عبر VPN.';
 
   @override
   String fromRegionList(String region) {

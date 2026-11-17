@@ -150,6 +150,10 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
+  String get accountsGuideUnlimited =>
+      'Firefox অ্যাকাউন্টে এখন আনলিমিটেড ডাটা আছে।';
+
+  @override
   String accountsOrderNote(int percent) {
     return 'এই তালিকার ক্রমে: প্রতিটি অ্যাকাউন্ট $percent% পর্যন্ত, শেষটি ডেটা শেষ না হওয়া পর্যন্ত।';
   }
@@ -171,6 +175,9 @@ class AppLocalizationsBn extends AppLocalizations {
   @override
   String get delayTestFailed =>
       'সার্ভারগুলোর বিলম্ব মাপা যায়নি। ইন্টারনেট পরীক্ষা করুন।';
+
+  @override
+  String get delayFromLastTest => 'আগের পরীক্ষা থেকে';
 
   @override
   String get createAccountTitle => 'Firefox Account নেই?';
@@ -447,6 +454,9 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get settingsTitle => 'সেটিংস';
+
+  @override
+  String get settingsNoMatch => 'কিছু মেলেনি';
 
   @override
   String get sectionGeneral => 'সাধারণ';
@@ -928,6 +938,13 @@ class AppLocalizationsBn extends AppLocalizations {
   String get tlsFragment => 'TLS ফ্র্যাগমেন্টেশন';
 
   @override
+  String get tlsFragmentAuto => 'স্বয়ংক্রিয়';
+
+  @override
+  String get tlsFragmentAutoHint =>
+      'স্বাভাবিক সংযোগ ব্যর্থ হলে অন্য পদ্ধতি চেষ্টা করে।';
+
+  @override
   String get tlsFragmentOff => 'বন্ধ';
 
   @override
@@ -1049,6 +1066,9 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get speedInNotification => 'বিজ্ঞপ্তিতে গতি দেখান';
+
+  @override
+  String get showAppModeSwitch => 'দ্রুত VPN মোড পরিবর্তন';
 
   @override
   String get liveTraffic => 'লাইভ ট্রাফিক';
@@ -1180,6 +1200,9 @@ class AppLocalizationsBn extends AppLocalizations {
   String get connectOnStartup => 'চালু হলে স্বয়ংক্রিয়ভাবে সংযোগ করুন';
 
   @override
+  String get autostartShowsWindow => 'অ্যাপের উইন্ডো দেখান';
+
+  @override
   String get proxyServiceActive => 'প্রক্সি সার্ভিস চালু আছে';
 
   @override
@@ -1233,7 +1256,60 @@ class AppLocalizationsBn extends AppLocalizations {
   String get dataUsedTitle => 'ব্যবহৃত ডেটা';
 
   @override
+  String get monthlyData => 'ডেটা';
+
+  @override
   String get bypassApps => 'অ্যাপভিত্তিক প্রক্সি';
+
+  @override
+  String get appClipboardImport => 'ক্লিপবোর্ড থেকে আমদানি';
+
+  @override
+  String get appClipboardExport => 'ক্লিপবোর্ডে রপ্তানি';
+
+  @override
+  String get appClipboardUnavailable => 'ক্লিপবোর্ডে অ্যাক্সেস করা যায়নি।';
+
+  @override
+  String get appClipboardNoMatches =>
+      'ক্লিপবোর্ডের প্যাকেজ নামের সঙ্গে ইনস্টল করা কোনো অ্যাপ মেলেনি।';
+
+  @override
+  String get appClipboardMerge => 'একত্র করুন';
+
+  @override
+  String get appClipboardReplace => 'প্রতিস্থাপন করুন';
+
+  @override
+  String appClipboardImportPrompt(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'ইনস্টল করা $countটি অ্যাপ মিলেছে। সেগুলো বর্তমান নির্বাচনে যোগ করবেন, নাকি নির্বাচন প্রতিস্থাপন করবেন?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardImported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countটি অ্যাপ আমদানি করা হয়েছে।',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardExported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countটি প্যাকেজ নাম কপি করা হয়েছে।',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get connectRetrying => 'সংযোগ করা যায়নি। ইন্টারনেট পরীক্ষা করুন।';
@@ -1323,6 +1399,26 @@ class AppLocalizationsBn extends AppLocalizations {
   @override
   String get appModeIncludeHint =>
       'শুধু নির্বাচিত অ্যাপগুলো VPN দিয়ে যায়; বাকিগুলো সরাসরি সংযোগ করে।';
+
+  @override
+  String get modeAllApps => 'সব অ্যাপ';
+
+  @override
+  String get modeAllAppsHint => 'সব অ্যাপ VPN দিয়ে যায়';
+
+  @override
+  String get modeSelectedApps => 'নির্বােবিত অ্যাপ';
+
+  @override
+  String get modeSelectedAppsHint => 'শুধু নির্বােবিত অ্যাপ';
+
+  @override
+  String selectedAppsCount(String count) {
+    return 'নির্বােবিত অ্যাপ  $count';
+  }
+
+  @override
+  String get allTrafficThroughVpn => 'ফোনের সব ট্রাফিক VPN দিয়ে যায়।';
 
   @override
   String fromRegionList(String region) {

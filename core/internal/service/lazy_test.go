@@ -374,10 +374,10 @@ func TestPingWhileOffUsesAPassOfItsOwn(t *testing.T) {
 	waitMessage(t, d, PhaseOff, "Proxy off")
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	if _, _, err := d.PingAll(ctx, nil); err != nil {
+	if _, _, err := d.PingAll(ctx, nil, false); err != nil {
 		t.Fatalf("ping while off: %v", err)
 	}
-	if _, _, err := d.PingAll(ctx, nil); err != nil {
+	if _, _, err := d.PingAll(ctx, nil, false); err != nil {
 		t.Fatalf("second ping while off: %v", err)
 	}
 	if m := f.passes.Load(); m != 1 {

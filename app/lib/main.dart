@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import 'app_settings.dart';
@@ -56,7 +56,9 @@ Future<void> main(List<String> args) async {
       process: process,
       navigatorKey: navigatorKey,
       // --hidden: a new version that its update started in the tray.
-      startHidden: args.contains('--autostart') || args.contains('--hidden'),
+      startHidden:
+          (args.contains('--autostart') || args.contains('--hidden')) &&
+          !args.contains('--show'),
       autostarted: args.contains('--autostart'),
       manageAutostart: !args.any((a) => a.startsWith('--data-dir=')),
     ).start();

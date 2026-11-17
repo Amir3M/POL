@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../app_info.dart';
@@ -592,16 +592,25 @@ Color quotaColor(double usedPercent, double thresholdPercent) {
 
 /// A usage bar with the account-switch threshold marked.
 class QuotaBar extends StatelessWidget {
-  const QuotaBar({super.key, required this.percent, this.threshold = 0});
+  const QuotaBar({
+    super.key,
+    required this.percent,
+    this.threshold = 0,
+    this.unlimited = false,
+  });
 
   final double percent;
   final double threshold;
 
+  /// An account with no limit: the bar is full and in the accent colour, and
+  /// the threshold marker is left off, since there is nothing to run out of.
+  final bool unlimited;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final value = (percent / 100).clamp(0.0, 1.0);
-    final color = quotaColor(percent, threshold);
+    final value = unlimited ? 1.0 : (percent / 100).clamp(0.0, 1.0);
+    final color = unlimited ? scheme.primary : quotaColor(percent, threshold);
     return SizedBox(
       height: 8,
       child: LayoutBuilder(
@@ -618,7 +627,7 @@ class QuotaBar extends StatelessWidget {
                 ),
               ),
             ),
-            if (threshold > 0 && threshold < 100)
+            if (!unlimited && threshold > 0 && threshold < 100)
               PositionedDirectional(
                 start: box.maxWidth * threshold / 100 - 1,
                 top: -3,

@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:arman_vpn/app_settings.dart';
 import 'package:arman_vpn/core/announcements.dart';
 import 'package:arman_vpn/core/updates.dart';
 import 'package:arman_vpn/l10n/app_localizations.dart';
 import 'package:arman_vpn/ui/announcement_panel.dart';
+import 'package:arman_vpn/ui/app.dart';
 
 void main() {
   testWidgets(
@@ -17,7 +18,7 @@ void main() {
       const pageKey = ValueKey('unchanged-page');
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: VpnApp.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: AnnouncementOverlay(
@@ -92,7 +93,7 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: VpnApp.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Column(

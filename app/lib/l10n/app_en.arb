@@ -141,6 +141,7 @@
     }
   },
   "accountsGuide": "Each Firefox Account has {size} of data a month. You can add several: when one runs out, the app moves to the next one by itself.",
+  "accountsGuideUnlimited": "Firefox Accounts have unlimited data at the moment.",
   "accountsOrderNote": "In the order of this list: each up to {percent}%, the last one until its data runs out.",
   "@accountsGuide": {
     "placeholders": {
@@ -168,6 +169,7 @@
   "noAccounts": "No accounts yet",
   "noAccountsHint": "Add a Firefox Account to connect.",
   "delayTestFailed": "Couldn't measure the servers' delay. Check your internet.",
+  "delayFromLastTest": "From the last test",
   "createAccountTitle": "Don't have a Firefox Account?",
   "createAccountHint": "Create one for free at accounts.firefox.com, then come back and press Add account.",
   "moveUp": "Move up",
@@ -331,6 +333,7 @@
   "errNotAnswering": "The core is not answering.",
   "errRefused": "The core refused the app; it may belong to another copy.",
   "settingsTitle": "Settings",
+  "settingsNoMatch": "Nothing matches that",
   "sectionGeneral": "General",
   "language": "Language",
   "languageSystem": "System default",
@@ -573,6 +576,8 @@
   "portRefusedNote": "Mozilla's proxy does not connect to this port.",
   "sectionAdvanced": "Advanced",
   "tlsFragment": "TLS fragmentation",
+  "tlsFragmentAuto": "Automatic",
+  "tlsFragmentAutoHint": "Tries other methods if the normal connection fails.",
   "tlsFragmentOff": "Off",
   "tlsFragmentFirstByte": "First byte",
   "tlsFragmentSni": "Server name (SNI)",
@@ -618,6 +623,7 @@
   },
   "showPublicIp": "Show the public IP",
   "speedInNotification": "Show speed in the notification",
+  "showAppModeSwitch": "Quick VPN mode switch",
   "liveTraffic": "Live traffic",
   "totalTraffic": "Total traffic",
   "verboseLogs": "Detailed logs",
@@ -734,6 +740,7 @@
   "tapToDisconnect": "Click to disconnect",
   "startOnBoot": "Start on boot",
   "connectOnStartup": "Connect on startup",
+  "autostartShowsWindow": "Show the app's window",
   "proxyServiceActive": "Proxy service active",
   "navHome": "Home",
   "groupApp": "App",
@@ -767,7 +774,26 @@
   "connectedTo": "Connected to",
   "vpnNotAllowed": "The VPN needs your permission. Tap the button again and allow it.",
   "dataUsedTitle": "Data used",
+  "monthlyData": "Data",
   "bypassApps": "Per-app proxy",
+  "appClipboardImport": "Import from Clipboard",
+  "appClipboardExport": "Export to Clipboard",
+  "appClipboardUnavailable": "Couldn't access the clipboard.",
+  "appClipboardNoMatches": "No installed apps match the package names in the clipboard.",
+  "appClipboardMerge": "Merge",
+  "appClipboardReplace": "Replace",
+  "appClipboardImportPrompt": "{count, plural, one{Found 1 installed app.} other{Found {count} installed apps.}} Add the matches to the current selection or replace it?",
+  "@appClipboardImportPrompt": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "appClipboardImported": "{count, plural, one{Imported 1 app.} other{Imported {count} apps.}}",
+  "@appClipboardImported": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "appClipboardExported": "{count, plural, one{Copied 1 package name.} other{Copied {count} package names.}}",
+  "@appClipboardExported": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "connectRetrying": "Couldn't connect. Check your internet.",
   "failUnreachable": "Couldn't reach Mozilla's servers. Try another internet connection.",
   "failUpstreamProxy": "Couldn't reach Mozilla through your upstream proxy. Check that it's running.",
@@ -813,6 +839,19 @@
   "appModeInclude": "Proxy selected apps",
   "appModeExcludeHint": "Selected apps connect directly, not through the VPN: for example banking apps that refuse foreign addresses.",
   "appModeIncludeHint": "Only the selected apps go through the VPN; the others connect directly.",
+  "modeAllApps": "All apps",
+  "modeAllAppsHint": "All apps go through the VPN",
+  "modeSelectedApps": "Selected apps",
+  "modeSelectedAppsHint": "Only the selected apps",
+  "selectedAppsCount": "Selected apps  {count}",
+  "@selectedAppsCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "allTrafficThroughVpn": "All of the phone's traffic goes through the VPN.",
   "fromRegionList": "Suggested: on the {region} list",
   "@fromRegionList": {
     "placeholders": {

@@ -176,6 +176,7 @@ abstract final class Updates {
       for (final a in args)
         if (a == '--autostart' ||
             a == '--hidden' ||
+            a == '--show' ||
             a.startsWith('--data-dir='))
           a,
     ];
@@ -222,8 +223,14 @@ abstract final class Updates {
       // Not right after an update that failed (the old version started
       // again): the next start tries again, so a lasting failure is no loop.
       final justFailed = update.last != null && !update.last!.ok;
+      // A version downloaded before is not installed when a newer one has
+      // been found since (the user skipped 1.0.18, and 1.0.19 is out): it
+      // would only be replaced at once by a second update. The newer one
+      // downloads instead, below, and installs at the next start.
+      final superseded = newerVersion(settings.updateVersion, update.version);
       if (update.ready &&
           !justFailed &&
+          !superseded &&
           newerVersion(update.version, appVersion)) {
         installingAtStart.value = true;
         unawaited(

@@ -96,6 +96,8 @@ Ordinary development does not need real credentials. Tests use temporary HOME/US
 
 ## Renewal call path
 
+When a usable VPN session is open, ProxyPass renewal and the connected quota check send Guardian requests through a stream in that session first. OAuth refresh during the same operation also tries the current session. If the stream fails, the existing direct and recovery routes take over when it is safe to retry. The core does not repeat a POST immediately when the connection may already have delivered it. Initial connection and renewal without a usable session use the regular routes.
+
 ```text
 RunRenewalLoop
   -> nextRenewalDelay
@@ -128,6 +130,8 @@ OAuth refresh is reached through the authentication/pass lifecycle; there is no 
 Terminal failures are reported, not hammered: `reauth_required` (FxA rejected the stored credential), `region_unavailable` (HTTP 451), `not_entitled`, `quota_exhausted`, and `no_usable_account` back off as listed above (the last one until the earliest quota reset). The failure code and next attempt time are written to the status file.
 
 ## Recovery and quota
+
+Production Guardian token GET and HEAD requests try a plain direct connection first. After a connection failure or HTTP 406 they try the connection profile's alternate address over HTTP/2 when available, then direct TLS with the configured fragmentation, then relay recovery if available. Automatic fragmentation tries SNI, first-byte, and TLS record in that order. The URL, HTTP Host, TLS server name, and certificate verification still identify Guardian. Once a route returns a usable ProxyPass, that route is tried first on the same network for 30 minutes. If it fails or becomes unavailable, the other routes are tried in their usual order.
 
 Startup, renewal, quota checks, and manual account switches all obtain passes through `AccountPool.AcquirePass`; tests that build a controller without an account pool exercise the same recovery through `acquireUsablePass` with one fixed auth.
 

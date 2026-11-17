@@ -152,6 +152,10 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get accountsGuideUnlimited =>
+      'У аккаунтов Firefox сейчас безлимитный трафик.';
+
+  @override
   String accountsOrderNote(int percent) {
     return 'В порядке этого списка: каждый до $percent%, последний — пока не кончится трафик.';
   }
@@ -173,6 +177,9 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get delayTestFailed =>
       'Не удалось измерить задержку серверов. Проверьте интернет.';
+
+  @override
+  String get delayFromLastTest => 'Из прошлой проверки';
 
   @override
   String get createAccountTitle => 'Нет Firefox Account?';
@@ -450,6 +457,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get settingsTitle => 'Настройки';
+
+  @override
+  String get settingsNoMatch => 'Ничего не найдено';
 
   @override
   String get sectionGeneral => 'Общие';
@@ -933,6 +943,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get tlsFragment => 'Фрагментация TLS';
 
   @override
+  String get tlsFragmentAuto => 'Автоматически';
+
+  @override
+  String get tlsFragmentAutoHint =>
+      'Пробует другие способы, если обычное подключение не удаётся.';
+
+  @override
   String get tlsFragmentOff => 'Выключено';
 
   @override
@@ -1056,6 +1073,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get speedInNotification => 'Показывать скорость в уведомлении';
+
+  @override
+  String get showAppModeSwitch => 'Быстрое переключение режима VPN';
 
   @override
   String get liveTraffic => 'Текущий трафик';
@@ -1187,6 +1207,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get connectOnStartup => 'Подключаться при включении';
 
   @override
+  String get autostartShowsWindow => 'Показывать окно приложения';
+
+  @override
   String get proxyServiceActive => 'Прокси-служба работает';
 
   @override
@@ -1240,7 +1263,61 @@ class AppLocalizationsRu extends AppLocalizations {
   String get dataUsedTitle => 'Использовано';
 
   @override
+  String get monthlyData => 'Трафик';
+
+  @override
   String get bypassApps => 'Раздельное туннелирование';
+
+  @override
+  String get appClipboardImport => 'Импорт из буфера обмена';
+
+  @override
+  String get appClipboardExport => 'Экспорт в буфер обмена';
+
+  @override
+  String get appClipboardUnavailable =>
+      'Не удалось получить доступ к буферу обмена.';
+
+  @override
+  String get appClipboardNoMatches =>
+      'Имена пакетов в буфере обмена не совпадают ни с одним установленным приложением.';
+
+  @override
+  String get appClipboardMerge => 'Объединить';
+
+  @override
+  String get appClipboardReplace => 'Заменить';
+
+  @override
+  String appClipboardImportPrompt(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Найдено совпадений среди установленных приложений: $count. Добавить их к текущему списку или заменить его?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardImported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Импортировано приложений: $count.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardExported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Скопировано имён пакетов: $count.',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get connectRetrying => 'Не удалось подключиться. Проверьте интернет.';
@@ -1331,6 +1408,26 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get appModeIncludeHint =>
       'Через VPN идут только выбранные приложения; остальные подключаются напрямую.';
+
+  @override
+  String get modeAllApps => 'Все приложения';
+
+  @override
+  String get modeAllAppsHint => 'Все приложения идут через VPN';
+
+  @override
+  String get modeSelectedApps => 'Выбранные приложения';
+
+  @override
+  String get modeSelectedAppsHint => 'Только выбранные приложения';
+
+  @override
+  String selectedAppsCount(String count) {
+    return 'Выбранные приложения  $count';
+  }
+
+  @override
+  String get allTrafficThroughVpn => 'Весь трафик телефона идёт через VPN.';
 
   @override
   String fromRegionList(String region) {

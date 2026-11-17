@@ -150,6 +150,10 @@ class AppLocalizationsId extends AppLocalizations {
   }
 
   @override
+  String get accountsGuideUnlimited =>
+      'Akun Firefox saat ini punya kuota tanpa batas.';
+
+  @override
   String accountsOrderNote(int percent) {
     return 'Sesuai urutan daftar ini: masing-masing sampai $percent%, yang terakhir sampai datanya habis.';
   }
@@ -171,6 +175,9 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get delayTestFailed =>
       'Tidak dapat mengukur jeda server. Periksa internet Anda.';
+
+  @override
+  String get delayFromLastTest => 'Dari tes sebelumnya';
 
   @override
   String get createAccountTitle => 'Belum punya Firefox Account?';
@@ -446,6 +453,9 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get settingsTitle => 'Pengaturan';
+
+  @override
+  String get settingsNoMatch => 'Tidak ada yang cocok';
 
   @override
   String get sectionGeneral => 'Umum';
@@ -929,6 +939,13 @@ class AppLocalizationsId extends AppLocalizations {
   String get tlsFragment => 'Fragmentasi TLS';
 
   @override
+  String get tlsFragmentAuto => 'Otomatis';
+
+  @override
+  String get tlsFragmentAutoHint =>
+      'Mencoba cara lain jika koneksi biasa gagal.';
+
+  @override
   String get tlsFragmentOff => 'Nonaktif';
 
   @override
@@ -1052,6 +1069,9 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get speedInNotification => 'Tampilkan kecepatan di notifikasi';
+
+  @override
+  String get showAppModeSwitch => 'Ganti mode VPN dengan cepat';
 
   @override
   String get liveTraffic => 'Lalu lintas langsung';
@@ -1183,6 +1203,9 @@ class AppLocalizationsId extends AppLocalizations {
   String get connectOnStartup => 'Sambungkan saat sistem menyala';
 
   @override
+  String get autostartShowsWindow => 'Tampilkan jendela aplikasi';
+
+  @override
   String get proxyServiceActive => 'Layanan proxy aktif';
 
   @override
@@ -1236,7 +1259,60 @@ class AppLocalizationsId extends AppLocalizations {
   String get dataUsedTitle => 'Data terpakai';
 
   @override
+  String get monthlyData => 'Kuota';
+
+  @override
   String get bypassApps => 'Proxy per aplikasi';
+
+  @override
+  String get appClipboardImport => 'Impor dari papan klip';
+
+  @override
+  String get appClipboardExport => 'Ekspor ke papan klip';
+
+  @override
+  String get appClipboardUnavailable => 'Papan klip tidak dapat diakses.';
+
+  @override
+  String get appClipboardNoMatches =>
+      'Tidak ada aplikasi terinstal yang cocok dengan nama paket di papan klip.';
+
+  @override
+  String get appClipboardMerge => 'Gabungkan';
+
+  @override
+  String get appClipboardReplace => 'Ganti';
+
+  @override
+  String appClipboardImportPrompt(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Ditemukan $count aplikasi terinstal yang cocok. Tambahkan ke pilihan saat ini atau ganti pilihan?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardImported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count aplikasi diimpor.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardExported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count nama paket disalin.',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get connectRetrying => 'Tidak dapat terhubung. Periksa internet Anda.';
@@ -1326,6 +1402,26 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get appModeIncludeHint =>
       'Hanya aplikasi terpilih yang lewat VPN; aplikasi lain terhubung langsung.';
+
+  @override
+  String get modeAllApps => 'Semua aplikasi';
+
+  @override
+  String get modeAllAppsHint => 'Semua aplikasi lewat VPN';
+
+  @override
+  String get modeSelectedApps => 'Aplikasi terpilih';
+
+  @override
+  String get modeSelectedAppsHint => 'Hanya aplikasi terpilih';
+
+  @override
+  String selectedAppsCount(String count) {
+    return 'Aplikasi terpilih  $count';
+  }
+
+  @override
+  String get allTrafficThroughVpn => 'Semua lalu lintas ponsel lewat VPN.';
 
   @override
   String fromRegionList(String region) {

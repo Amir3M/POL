@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// What the window's close button does.
 enum CloseAction { ask, tray, quit }
@@ -36,6 +36,11 @@ class AppSettings extends ChangeNotifier {
   /// location is shown by its country either way.
   bool showPublicIp = false;
 
+  /// Android: the per-app mode switch on the home screen (all apps,
+  /// selected apps, proxy). Off by default: most people never change it,
+  /// and it takes the room the location and quota cards want.
+  bool showAppModeSwitch = false;
+
   /// How a new account signs in (the accounts page's row).
   SignInMethod signInMethod = SignInMethod.api;
 
@@ -60,6 +65,10 @@ class AppSettings extends ChangeNotifier {
   /// Starts the app in the tray when the user signs in to Windows; on
   /// unless the user turned it off.
   bool autostart = true;
+
+  /// Whether a start with the computer ([autostart]) opens the window, or
+  /// waits in the tray as it always has.
+  bool autostartShowsWindow = false;
 
   /// Connects by itself when started with the computer ([autostart]); off
   /// until the user turns it on. The core decides how (Daemon.AutoConnect).
@@ -189,6 +198,7 @@ class AppSettings extends ChangeNotifier {
             CloseAction.values.asNameMap()[j['close']] ?? CloseAction.ask;
         s.firstRun = j['welcome_done'] != true;
         s.showPublicIp = j['show_public_ip'] == true;
+        s.showAppModeSwitch = j['show_app_mode_switch'] == true;
         s.signInMethod =
             SignInMethod.values.asNameMap()[j['signin_method']] ??
             s.signInMethod;
@@ -218,6 +228,7 @@ class AppSettings extends ChangeNotifier {
           _ => null,
         };
         s.autostart = j['autostart'] != false;
+        s.autostartShowsWindow = j['autostart_shows_window'] == true;
         s.autoConnect = j['auto_connect'] == true;
         s.udpNotice = j['udp_notice'] != false;
         if (j['hidden_connection_columns'] case final List<Object?> v) {
@@ -240,6 +251,7 @@ class AppSettings extends ChangeNotifier {
     SignInMethod? signInMethod,
     bool? firstRun,
     bool? showPublicIp,
+    bool? showAppModeSwitch,
     DateTime? lowQuotaDismissedAt,
     String? dismissedUpdate,
     DateTime? updateCheckedAt,
@@ -250,6 +262,7 @@ class AppSettings extends ChangeNotifier {
     Map<String, int>? announcementSeen,
     Map<String, int>? announcementAcknowledged,
     bool? autostart,
+    bool? autostartShowsWindow,
     bool? autoConnect,
     bool? udpNotice,
     Set<String>? hiddenConnectionColumns,
@@ -258,8 +271,11 @@ class AppSettings extends ChangeNotifier {
         hiddenConnectionColumns ?? this.hiddenConnectionColumns;
     this.udpNotice = udpNotice ?? this.udpNotice;
     this.autostart = autostart ?? this.autostart;
+    this.autostartShowsWindow =
+        autostartShowsWindow ?? this.autostartShowsWindow;
     this.autoConnect = autoConnect ?? this.autoConnect;
     this.showPublicIp = showPublicIp ?? this.showPublicIp;
+    this.showAppModeSwitch = showAppModeSwitch ?? this.showAppModeSwitch;
     this.lowQuotaDismissedAt = lowQuotaDismissedAt ?? this.lowQuotaDismissedAt;
     this.dismissedUpdate = dismissedUpdate ?? this.dismissedUpdate;
     this.updateCheckedAt = updateCheckedAt ?? this.updateCheckedAt;
@@ -292,6 +308,7 @@ class AppSettings extends ChangeNotifier {
           'signin_method': signInMethod.name,
           'welcome_done': !firstRun,
           'show_public_ip': showPublicIp,
+          'show_app_mode_switch': showAppModeSwitch,
           'low_quota_dismissed_at': lowQuotaDismissedAt?.toIso8601String(),
           'dismissed_update': dismissedUpdate,
           'update_checked_at': updateCheckedAt?.toIso8601String(),
@@ -302,6 +319,7 @@ class AppSettings extends ChangeNotifier {
           'announcement_seen': announcementSeen,
           'announcement_acknowledged': announcementAcknowledged,
           'autostart': autostart,
+          'autostart_shows_window': autostartShowsWindow,
           'auto_connect': autoConnect,
           'udp_notice': udpNotice,
           'hidden_connection_columns': hiddenConnectionColumns.toList(),

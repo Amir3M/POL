@@ -17,7 +17,7 @@ class MainFlutterWindow: NSWindow {
     self.title = "Arman VPN"
     self.setContentSize(NSSize(width: 820, height: 680))
     // The smallest window the pages are laid out for.
-    self.contentMinSize = NSSize(width: 720, height: 560)
+    self.contentMinSize = NSSize(width: 400, height: 480)
     self.center()
 
     RegisterGeneratedPlugins(registry: flutterViewController)

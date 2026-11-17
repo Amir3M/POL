@@ -16,10 +16,20 @@ const appVersion = String.fromEnvironment('APP_VERSION', defaultValue: '0.0.0');
 /// check.
 const githubRepo = 'armanlife/arman-vpn-client';
 
-const updateManifestUrl =
-    'https://raw.githubusercontent.com/arman-org/update-manifests/main/arman-vpn-client/updates.json';
-const updateManifestMirror =
-    'https://cdn.jsdelivr.net/gh/arman-org/update-manifests@main/arman-vpn-client/updates.json';
+/// The update manifest and its mirror. A build may name others
+/// (--dart-define=UPDATE_MANIFEST_URL=..., UPDATE_MANIFEST_MIRROR=...) to
+/// show a manifest that is not published yet on a device, without touching
+/// the one every installed app reads.
+const updateManifestUrl = String.fromEnvironment(
+  'UPDATE_MANIFEST_URL',
+  defaultValue:
+      'https://raw.githubusercontent.com/arman-org/update-manifests/main/arman-vpn-client/updates.json',
+);
+const updateManifestMirror = String.fromEnvironment(
+  'UPDATE_MANIFEST_MIRROR',
+  defaultValue:
+      'https://cdn.jsdelivr.net/gh/arman-org/update-manifests@main/arman-vpn-client/updates.json',
+);
 
 /// A release server used instead of GitHub, to try updates with a local
 /// test release: it serves [updatesFile] at `<server>/updates.json`, answers

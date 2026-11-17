@@ -14,6 +14,7 @@ import (
 
 	"github.com/armanlife/arman-vpn-client/core/internal/accounts"
 	"github.com/armanlife/arman-vpn-client/core/internal/config"
+	"github.com/armanlife/arman-vpn-client/core/internal/evasion"
 	"github.com/armanlife/arman-vpn-client/core/internal/fxa"
 	"github.com/armanlife/arman-vpn-client/core/internal/guardian"
 	"github.com/armanlife/arman-vpn-client/core/internal/logx"
@@ -140,6 +141,8 @@ type Daemon struct {
 	// RequireDashboard makes Run fail when the dashboard is disabled in
 	// config.json: the desktop app reaches the service only through its API.
 	RequireDashboard bool
+	privateDashboard bool
+	dashboardAddress atomic.Pointer[string]
 	// OpenFolder, when set, shows a folder in the desktop's file manager;
 	// the tray and the status screen set it when the service runs in their
 	// process. The plain log mode has no desktop of its own, so it asks the
@@ -199,6 +202,7 @@ type Daemon struct {
 	engine         *proxyEngine
 	state          engineState
 	countries      []serverlist.Country
+	locationsMu    sync.Mutex
 	exit           *proxy.ExitProbeResult
 	lastTest       *proxy.ConnectionTestResult
 	dashboard      *dashboardServer
@@ -226,6 +230,11 @@ type Daemon struct {
 	// pingPass is the pass of measurements while the proxy is off, reused
 	// until shortly before it expires; pingMu guards it.
 	pingPass *guardian.ProxyPassInfo
+	// pingSkip holds, by country code, until when a location that was slow
+	// or did not answer is left out of the measurements (slowPingSkip), on
+	// the network pingSkipNetwork; pingMu guards both.
+	pingSkip        map[string]time.Time
+	pingSkipNetwork string
 }
 
 func NewDaemon(paths DataPaths, forceVerbose bool) (*Daemon, error) {
@@ -283,15 +292,19 @@ func (d *Daemon) loadSavedLocations() {
 func (d *Daemon) Run() error {
 	defer close(d.finished)
 	cfg := d.config()
-	logx.Info("service starting version=%s data_dir=%s accounts=%d switch_threshold=%g%%", version.Current, d.paths.Dir, d.mgr.Len(), cfg.Accounts.SwitchThresholdPercent)
+	logx.Info("service starting version=%s profile=%s data_dir=%s accounts=%d switch_threshold=%g%%", version.Current, evasion.Name(), d.paths.Dir, d.mgr.Len(), cfg.Accounts.SwitchThresholdPercent)
 	token, err := newLocalToken()
 	if err != nil {
 		return err
 	}
 	d.localToken = token
-	if cfg.Dashboard.Enabled {
+	if cfg.Dashboard.Enabled || d.privateDashboard {
 		d.dashboard = newDashboardServer(d)
-		if err := d.dashboard.start(cfg.Dashboard.Listen); err != nil {
+		listen := cfg.Dashboard.Listen
+		if d.privateDashboard {
+			listen = "127.0.0.1:0"
+		}
+		if err := d.dashboard.start(listen); err != nil {
 			// A taken address (*AddressInUseError) is returned as is: the
 			// desktop app tells the user and offers another port.
 			return fmt.Errorf("starting the dashboard: %w", err)
@@ -299,7 +312,16 @@ func (d *Daemon) Run() error {
 		// Published only once this instance owns the dashboard address, so
 		// a second instance that fails to start cannot replace it.
 		if err := securefile.WritePrivate(d.paths.LocalToken, []byte(token)); err != nil {
+			if d.privateDashboard {
+				d.dashboard.close()
+				return fmt.Errorf("writing the local API token: %w", err)
+			}
 			logx.Warn("writing the local API token failed; the tray cannot connect err=%s", logx.Err(err))
+		}
+		if d.privateDashboard {
+			addr := d.dashboard.listener.Addr().String()
+			d.dashboardAddress.Store(&addr)
+			defer d.dashboardAddress.Store(nil)
 		}
 	} else if d.RequireDashboard {
 		return errors.New("the dashboard is disabled in config.json (dashboard.enabled=false); the app needs its API")
@@ -498,6 +520,21 @@ func (d *Daemon) setOn(on bool) {
 // sign-in link from the app (POST /api/session/link) signs it in. The phone
 // sets it, since every app on the phone can reach its loopback.
 func (d *Daemon) RequireLocalToken() { d.tokenOnly.Store(true) }
+
+// UsePrivateDashboard lets the OS choose a free loopback port for the app's
+// token-protected API. Call it before Run.
+func (d *Daemon) UsePrivateDashboard() {
+	d.privateDashboard = true
+	d.RequireLocalToken()
+}
+
+// PrivateDashboardAddress reports the address once the API and token are ready.
+func (d *Daemon) PrivateDashboardAddress() string {
+	if addr := d.dashboardAddress.Load(); addr != nil {
+		return *addr
+	}
+	return ""
+}
 
 // ProxyEndpoint is where clients in this process reach the proxy: the
 // address of the listener this daemon's engine holds (on loopback for a
@@ -970,7 +1007,7 @@ func (d *Daemon) updateSettings(next config.Config, newPassword *string) (settin
 	default:
 		return settingsChange{}, errors.New("set a password for the dashboard username")
 	}
-	if dashboardExposedWithoutLogin(next) {
+	if !d.privateDashboard && dashboardExposedWithoutLogin(next) {
 		return settingsChange{}, errors.New("set a dashboard username and password before opening the dashboard to other devices")
 	}
 	next.Tun.Programs = config.CleanTunPrograms(next.Tun.Programs)
@@ -989,18 +1026,23 @@ func (d *Daemon) updateSettings(next config.Config, newPassword *string) (settin
 	if err := next.Validate(); err != nil {
 		return settingsChange{}, err
 	}
-	if !slices.Equal(next.DNS.Servers, prev.DNS.Servers) || next.DNS.FallbackToSystem != prev.DNS.FallbackToSystem {
+	dnsChanged := !slices.Equal(next.DNS.Servers, prev.DNS.Servers) || next.DNS.FallbackToSystem != prev.DNS.FallbackToSystem
+	networkChanged := next.Network != prev.Network
+	if dnsChanged {
 		if err := configureDNS(next.DNS); err != nil {
 			return settingsChange{}, fmt.Errorf("invalid dns.servers: %w", err)
 		}
 	}
-	if next.Network != prev.Network {
+	if networkChanged {
 		if err := configureAPIRelay(next.Network); err != nil {
 			return settingsChange{}, fmt.Errorf("invalid network.api_relay: %w", err)
 		}
 	}
 	if err := config.Save(d.paths.Config, next); err != nil {
 		return settingsChange{}, err
+	}
+	if dnsChanged || networkChanged {
+		guardian.ClearTokenRouteCache()
 	}
 	d.mu.Lock()
 	d.cfg = next
@@ -1012,7 +1054,7 @@ func (d *Daemon) updateSettings(next config.Config, newPassword *string) (settin
 	d.mgr.SetPolicy(accounts.Policy{ThresholdPercent: next.Accounts.SwitchThresholdPercent})
 	change := settingsChange{
 		restartEngine:    next.Proxy != prev.Proxy || next.Network != prev.Network,
-		restartDashboard: next.Dashboard.Listen != prev.Dashboard.Listen,
+		restartDashboard: !d.privateDashboard && next.Dashboard.Listen != prev.Dashboard.Listen,
 	}
 	logx.Info("settings saved restart_proxy=%v restart_dashboard=%v", change.restartEngine, change.restartDashboard)
 	if routingChanged(next.Routing, prev.Routing) {

@@ -150,6 +150,10 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
+  String get accountsGuideUnlimited =>
+      'Firefox hesaplarında şu anda sınırsız veri var.';
+
+  @override
   String accountsOrderNote(int percent) {
     return 'Bu listedeki sırayla: her biri %$percent oranına kadar, sonuncusu verisi bitene kadar.';
   }
@@ -171,6 +175,9 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get delayTestFailed =>
       'Sunucuların gecikmesi ölçülemedi. İnternetinizi kontrol edin.';
+
+  @override
+  String get delayFromLastTest => 'Önceki testten';
 
   @override
   String get createAccountTitle => 'Firefox Account\'unuz yok mu?';
@@ -448,6 +455,9 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get settingsTitle => 'Ayarlar';
+
+  @override
+  String get settingsNoMatch => 'Sonuç yok';
 
   @override
   String get sectionGeneral => 'Genel';
@@ -928,6 +938,13 @@ class AppLocalizationsTr extends AppLocalizations {
   String get tlsFragment => 'TLS parçalama';
 
   @override
+  String get tlsFragmentAuto => 'Otomatik';
+
+  @override
+  String get tlsFragmentAutoHint =>
+      'Normal bağlantı kurulamazsa diğer yöntemleri dener.';
+
+  @override
   String get tlsFragmentOff => 'Kapalı';
 
   @override
@@ -1051,6 +1068,9 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get speedInNotification => 'Bildirimde hızı göster';
+
+  @override
+  String get showAppModeSwitch => 'Hızlı VPN modu değiştirme';
 
   @override
   String get liveTraffic => 'Anlık trafik';
@@ -1182,6 +1202,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get connectOnStartup => 'Açılışta bağlan';
 
   @override
+  String get autostartShowsWindow => 'Uygulama penceresini göster';
+
+  @override
   String get proxyServiceActive => 'Proxy hizmeti etkin';
 
   @override
@@ -1235,7 +1258,60 @@ class AppLocalizationsTr extends AppLocalizations {
   String get dataUsedTitle => 'Kullanılan veri';
 
   @override
+  String get monthlyData => 'Veri';
+
+  @override
   String get bypassApps => 'Uygulama bazlı proxy';
+
+  @override
+  String get appClipboardImport => 'Panodan içe aktar';
+
+  @override
+  String get appClipboardExport => 'Panoya aktar';
+
+  @override
+  String get appClipboardUnavailable => 'Panoya erişilemedi.';
+
+  @override
+  String get appClipboardNoMatches =>
+      'Panodaki paket adlarıyla eşleşen yüklü uygulama yok.';
+
+  @override
+  String get appClipboardMerge => 'Birleştir';
+
+  @override
+  String get appClipboardReplace => 'Değiştir';
+
+  @override
+  String appClipboardImportPrompt(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count yüklü uygulama eşleşti. Eşleşmeler mevcut seçime eklensin mi, yoksa seçimin yerini mi alsın?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardImported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count uygulama içe aktarıldı.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardExported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count paket adı kopyalandı.',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get connectRetrying => 'Bağlanılamadı. İnternetinizi kontrol edin.';
@@ -1324,6 +1400,27 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get appModeIncludeHint =>
       'Yalnızca seçili uygulamalar VPN üzerinden gider; diğerleri doğrudan bağlanır.';
+
+  @override
+  String get modeAllApps => 'Tüm uygulamalar';
+
+  @override
+  String get modeAllAppsHint => 'Tüm uygulamalar VPN üzerinden geçer';
+
+  @override
+  String get modeSelectedApps => 'Seçili uygulamalar';
+
+  @override
+  String get modeSelectedAppsHint => 'Yalnızca seçili uygulamalar';
+
+  @override
+  String selectedAppsCount(String count) {
+    return 'Seçili uygulamalar  $count';
+  }
+
+  @override
+  String get allTrafficThroughVpn =>
+      'Telefonun tüm trafiği VPN üzerinden geçer.';
 
   @override
   String fromRegionList(String region) {

@@ -84,7 +84,7 @@ func (s *dashboardServer) sessionToken(cfg config.Dashboard, expiry time.Time) s
 
 // start listens on addr and serves in the background.
 func (s *dashboardServer) start(addr string) error {
-	if dashboardExposedWithoutLogin(s.d.config()) {
+	if !s.d.privateDashboard && dashboardExposedWithoutLogin(s.d.config()) {
 		// Without a login the dashboard answers this computer only.
 		if _, port, err := net.SplitHostPort(addr); err == nil {
 			addr = net.JoinHostPort("127.0.0.1", port)

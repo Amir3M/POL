@@ -108,10 +108,8 @@ class MainActivity : FlutterActivity() {
         channel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "dataDir" -> result.success(CoreService.dataDir(this).absolutePath)
-                "startCore" -> {
-                    CoreService.startCore(this, on = false)
-                    result.success(null)
-                }
+                "startCore" -> result.success(CoreService.startCore(this, on = false))
+                "dashboardAddress" -> result.success(mobile.Mobile.dashboardAddress())
                 "setOn" -> {
                     if (call.argument<Boolean>("on") != true) {
                         CoreService.turnOff(this)
@@ -135,6 +133,11 @@ class MainActivity : FlutterActivity() {
                 "showSpeed" -> result.success(CoreService.showSpeed(this))
                 "setShowSpeed" -> {
                     CoreService.setShowSpeed(this, call.argument<Boolean>("on") == true)
+                    result.success(null)
+                }
+                "routingEnabled" -> result.success(CoreService.routingEnabled(this))
+                "setRoutingEnabled" -> {
+                    CoreService.setRoutingEnabled(this, call.argument<Boolean>("on") == true)
                     result.success(null)
                 }
                 "setConnectionMode" -> {

@@ -1,5 +1,7 @@
 # Web Dashboard
 
+On Android the system assigns the dashboard a free loopback port each time the core starts. Each Android user has a separate app data folder and local API token. Flutter gets the active address from the Android host and reads the token from that user's data folder. The saved dashboard listen address controls the desktop and server builds. The Android app opens the web dashboard from About.
+
 The service embeds a web dashboard and a JSON API in the executable. It is enabled by default on `http://127.0.0.1:10820`, with the page at `/app/` (`http://127.0.0.1:10820/app/`; the site root shows a plain "Up and running" page that does not name the program, and `/app` redirects to `/app/`) and keeps running while the proxy itself is stopped, waiting for an account, or restarting after a settings change.
 
 ## Pages

@@ -148,6 +148,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get accountsGuideUnlimited => 'Firefox 账户目前流量不限量。';
+
+  @override
   String accountsOrderNote(int percent) {
     return '按此列表顺序使用：每个账户用到 $percent%，最后一个用到流量耗尽。';
   }
@@ -168,6 +171,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get delayTestFailed => '无法测量服务器延迟。请检查网络。';
+
+  @override
+  String get delayFromLastTest => '来自上次测试';
 
   @override
   String get createAccountTitle => '还没有 Firefox 账户？';
@@ -434,6 +440,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsTitle => '设置';
+
+  @override
+  String get settingsNoMatch => '没有匹配结果';
 
   @override
   String get sectionGeneral => '常规';
@@ -904,6 +913,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tlsFragment => 'TLS 分片';
 
   @override
+  String get tlsFragmentAuto => '自动';
+
+  @override
+  String get tlsFragmentAutoHint => '如果常规连接失败，则尝试其他方法。';
+
+  @override
   String get tlsFragmentOff => '关闭';
 
   @override
@@ -1020,6 +1035,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get speedInNotification => '在通知中显示速度';
+
+  @override
+  String get showAppModeSwitch => '快速切换 VPN 模式';
 
   @override
   String get liveTraffic => '实时流量';
@@ -1149,6 +1167,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get connectOnStartup => '开机自动连接';
 
   @override
+  String get autostartShowsWindow => '显示应用窗口';
+
+  @override
   String get proxyServiceActive => '代理服务运行中';
 
   @override
@@ -1201,7 +1222,58 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dataUsedTitle => '已用流量';
 
   @override
+  String get monthlyData => '流量';
+
+  @override
   String get bypassApps => '分应用代理';
+
+  @override
+  String get appClipboardImport => '从剪贴板导入';
+
+  @override
+  String get appClipboardExport => '导出到剪贴板';
+
+  @override
+  String get appClipboardUnavailable => '无法访问剪贴板。';
+
+  @override
+  String get appClipboardNoMatches => '剪贴板中的包名与任何已安装的应用都不匹配。';
+
+  @override
+  String get appClipboardMerge => '合并';
+
+  @override
+  String get appClipboardReplace => '替换';
+
+  @override
+  String appClipboardImportPrompt(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '找到 $count 个匹配的已安装应用。要将它们添加到当前选择，还是替换当前选择？',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardImported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '已导入 $count 个应用。',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardExported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '已复制 $count 个包名。',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get connectRetrying => '无法连接。请检查网络。';
@@ -1278,6 +1350,26 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get appModeIncludeHint => '仅所选应用走 VPN，其他应用直连。';
+
+  @override
+  String get modeAllApps => '所有应用';
+
+  @override
+  String get modeAllAppsHint => '所有应用都经过 VPN';
+
+  @override
+  String get modeSelectedApps => '选定的应用';
+
+  @override
+  String get modeSelectedAppsHint => '仅选定的应用';
+
+  @override
+  String selectedAppsCount(String count) {
+    return '选定的应用  $count';
+  }
+
+  @override
+  String get allTrafficThroughVpn => '手机的所有流量都经过 VPN。';
 
   @override
   String fromRegionList(String region) {
@@ -1762,6 +1854,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
+  String get accountsGuideUnlimited => 'Firefox 帳號目前流量不限量。';
+
+  @override
   String accountsOrderNote(int percent) {
     return '依此清單順序使用：每個帳戶用到 $percent%，最後一個用到流量用完。';
   }
@@ -1782,6 +1877,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get delayTestFailed => '無法測量伺服器延遲。請檢查網路。';
+
+  @override
+  String get delayFromLastTest => '來自上次測試';
 
   @override
   String get createAccountTitle => '還沒有 Firefox Account？';
@@ -2047,6 +2145,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsTitle => '設定';
+
+  @override
+  String get settingsNoMatch => '沒有符合的結果';
 
   @override
   String get sectionGeneral => '一般';
@@ -2516,6 +2617,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tlsFragment => 'TLS 分片';
 
   @override
+  String get tlsFragmentAuto => '自動';
+
+  @override
+  String get tlsFragmentAutoHint => '如果一般連線失敗，就嘗試其他方法。';
+
+  @override
   String get tlsFragmentOff => '關閉';
 
   @override
@@ -2632,6 +2739,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get speedInNotification => '在通知中顯示速度';
+
+  @override
+  String get showAppModeSwitch => '快速切換 VPN 模式';
 
   @override
   String get liveTraffic => '即時流量';
@@ -2761,6 +2871,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get connectOnStartup => '開機自動連線';
 
   @override
+  String get autostartShowsWindow => '顯示應用程式視窗';
+
+  @override
   String get proxyServiceActive => '代理服務執行中';
 
   @override
@@ -2813,7 +2926,58 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get dataUsedTitle => '已用流量';
 
   @override
+  String get monthlyData => '流量';
+
+  @override
   String get bypassApps => '個別應用程式代理';
+
+  @override
+  String get appClipboardImport => '從剪貼簿匯入';
+
+  @override
+  String get appClipboardExport => '匯出至剪貼簿';
+
+  @override
+  String get appClipboardUnavailable => '無法存取剪貼簿。';
+
+  @override
+  String get appClipboardNoMatches => '剪貼簿中的套件名稱與任何已安裝的應用程式都不相符。';
+
+  @override
+  String get appClipboardMerge => '合併';
+
+  @override
+  String get appClipboardReplace => '取代';
+
+  @override
+  String appClipboardImportPrompt(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '找到 $count 個相符的已安裝應用程式。要加入目前的選取清單，還是取代清單？',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardImported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '已匯入 $count 個應用程式。',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardExported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '已複製 $count 個套件名稱。',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get connectRetrying => '無法連線。請檢查網路。';
@@ -2890,6 +3054,26 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get appModeIncludeHint => '只有所選應用程式經過 VPN；其他應用程式直接連線。';
+
+  @override
+  String get modeAllApps => '所有應用程式';
+
+  @override
+  String get modeAllAppsHint => '所有應用程式都經過 VPN';
+
+  @override
+  String get modeSelectedApps => '選取的應用程式';
+
+  @override
+  String get modeSelectedAppsHint => '僅選取的應用程式';
+
+  @override
+  String selectedAppsCount(String count) {
+    return '選取的應用程式  $count';
+  }
+
+  @override
+  String get allTrafficThroughVpn => '手機的所有流量都經過 VPN。';
 
   @override
   String fromRegionList(String region) {

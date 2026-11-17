@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../app_settings.dart';
@@ -121,6 +121,98 @@ List<(String, List<SettingsEntry>)> settingsGroups(
     ),
 ];
 
+/// Whether a setting the search found is on this platform at all. The
+/// index is shared, but a computer's settings are not on a phone and the
+/// other way round; these follow the `if (Platform...)` conditions in the
+/// sections' own code.
+bool settingOnThisPlatform(AppLocalizations l, String name) {
+  final computer = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+  final computerOnly = {
+    l.closeBehavior,
+    l.startOnBoot,
+    l.autostartShowsWindow,
+    l.connectOnStartup,
+  };
+  final androidOnly = {
+    l.showAppModeSwitch,
+    l.speedInNotification,
+    l.connectionMode,
+    l.bypassApps,
+  };
+  if (!computer && computerOnly.contains(name)) return false;
+  if (!Platform.isAndroid && androidOnly.contains(name)) return false;
+  return true;
+}
+
+/// A section's name as the list shows it, for saying where a setting that
+/// a search found lives.
+String settingsSectionName(AppLocalizations l, SettingsSection section) {
+  for (final (_, entries) in settingsGroups(l, tun: true)) {
+    for (final (which, _, name) in entries) {
+      if (which == section) return name;
+    }
+  }
+  return l.settingsTitle;
+}
+
+/// Every setting the list's search can find, with the section that holds
+/// it. test/settings_search_test.dart builds the same list from the
+/// sections' own code and fails when the two differ, so a setting added to
+/// a section cannot be left out of the search quietly.
+List<(SettingsSection, String)> settingsIndex(AppLocalizations l) => [
+  (SettingsSection.general, l.autostartShowsWindow),
+  (SettingsSection.general, l.closeBehavior),
+  (SettingsSection.general, l.connectOnStartup),
+  (SettingsSection.general, l.language),
+  (SettingsSection.general, l.sectionGeneral),
+  (SettingsSection.general, l.showAppModeSwitch),
+  (SettingsSection.general, l.showPublicIp),
+  (SettingsSection.general, l.speedInNotification),
+  (SettingsSection.general, l.startOnBoot),
+  (SettingsSection.general, l.theme),
+  (SettingsSection.connection, l.connectionMode),
+  (SettingsSection.connection, l.ipVersion),
+  (SettingsSection.connection, l.listenAddress),
+  (SettingsSection.connection, l.localProxy),
+  (SettingsSection.connection, l.proxyLogin),
+  (SettingsSection.connection, l.proxyPort),
+  (SettingsSection.connection, l.sectionConnection),
+  (SettingsSection.connection, l.transport),
+  (SettingsSection.connection, l.tunMtu),
+  (SettingsSection.relay, l.apiRelay),
+  (SettingsSection.relay, l.apiRelayUse),
+  (SettingsSection.relay, l.personalRelay),
+  (SettingsSection.relay, l.sharedRelay),
+  (SettingsSection.fragment, l.tlsFragment),
+  (SettingsSection.routing, l.blockAds),
+  (SettingsSection.routing, l.blockRules),
+  (SettingsSection.routing, l.bypassApps),
+  (SettingsSection.routing, l.directRules),
+  (SettingsSection.routing, l.region),
+  (SettingsSection.routing, l.removeTunService),
+  (SettingsSection.routing, l.resolveDomains),
+  (SettingsSection.routing, l.routingDirect),
+  (SettingsSection.routing, l.routingLists),
+  (SettingsSection.routing, l.ruleSyntaxTitle),
+  (SettingsSection.routing, l.rulesTitle),
+  (SettingsSection.routing, l.sectionRouting),
+  (SettingsSection.routing, l.testDestination),
+  (SettingsSection.tun, l.sectionTun),
+  (SettingsSection.tun, l.tunPrograms),
+  (SettingsSection.tun, l.udpNoticeSetting),
+  (SettingsSection.dns, l.dnsCustom),
+  (SettingsSection.dns, l.dnsFallback),
+  (SettingsSection.dns, l.dnsPreset),
+  (SettingsSection.dns, l.sectionDns),
+  (SettingsSection.advanced, l.addProgram),
+  (SettingsSection.advanced, l.appPort),
+  (SettingsSection.advanced, l.listSource),
+  (SettingsSection.advanced, l.removeTunService),
+  (SettingsSection.advanced, l.updateLists),
+  (SettingsSection.advanced, l.upstreamProxy),
+  (SettingsSection.advanced, l.webDashboard),
+];
+
 /// A group in a list of settings: its title over a card of its rows.
 class SettingsGroup extends StatelessWidget {
   const SettingsGroup({super.key, required this.title, required this.tiles});
@@ -164,6 +256,11 @@ class _SettingsPageState extends State<SettingsPage> {
   /// The section shown; null for the list of sections.
   late SettingsSection? _open = widget.section ?? widget.opening;
 
+  /// What was typed in the list's search field, already folded for
+  /// matching ([_fold]); empty means the whole list is shown.
+  String _query = '';
+  final _search = TextEditingController();
+
   /// The core's config.json as raw JSON; null until read.
   Map<String, Object?>? _config;
   bool _saving = false;
@@ -175,6 +272,12 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -358,19 +461,99 @@ class _SettingsPageState extends State<SettingsPage> {
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: onTap,
               );
+          // A section is shown when its name matches what was typed; an
+          // empty search shows them all.
+          bool matches(String name) =>
+              _query.isEmpty || foldForSearch(name).contains(_query);
+          final shown = [
+            for (final (title, entries) in groups)
+              (
+                title,
+                [
+                  for (final entry in entries)
+                    if (matches(entry.$3)) entry,
+                ],
+                onOpenLogs != null &&
+                    entries.last.$1 == SettingsSection.advanced &&
+                    matches(l.navLogs),
+              ),
+          ].where((g) => g.$2.isNotEmpty || g.$3).toList();
+          // The settings themselves, when something was typed: the name of
+          // each, under the section that holds it, so one tap opens it.
+          final hits = _query.isEmpty
+              ? const <(SettingsSection, String)>[]
+              : [
+                  for (final entry in settingsIndex(l))
+                    if (foldForSearch(entry.$2).contains(_query) &&
+                        sections.any((e) => e.$1 == entry.$1) &&
+                        settingOnThisPlatform(l, entry.$2) &&
+                        !shown.any(
+                          (g) => g.$2.any((e) => e.$1 == entry.$1 && e.$3 == entry.$2),
+                        ))
+                      entry,
+                ];
+
           return ListView(
             padding: pagePadding(context),
             children: [
               PageTitle(l.settingsTitle),
-              for (final (title, entries) in groups)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: TextField(
+                  controller: _search,
+                  onChanged: (v) => setState(() => _query = foldForSearch(v)),
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: l.search,
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: _search.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: MaterialLocalizations.of(context)
+                                .deleteButtonTooltip,
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () => setState(() {
+                              _search.clear();
+                              _query = '';
+                            }),
+                          ),
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              if (shown.isEmpty && hits.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 32),
+                  child: Text(
+                    l.settingsNoMatch,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              for (final (title, entries, logs) in shown)
                 SettingsGroup(
                   title: title,
                   tiles: [
                     for (final (section, icon, name) in entries)
                       row(icon, name, () => setState(() => _open = section)),
-                    if (onOpenLogs != null &&
-                        entries.last.$1 == SettingsSection.advanced)
-                      row(Icons.receipt_long_outlined, l.navLogs, onOpenLogs),
+                    if (logs)
+                      row(Icons.receipt_long_outlined, l.navLogs, onOpenLogs!),
+                  ],
+                ),
+              if (hits.isNotEmpty)
+                SettingsGroup(
+                  title: l.settingsTitle,
+                  tiles: [
+                    for (final (section, name) in hits)
+                      ListTile(
+                        leading: const Icon(Icons.chevron_right_rounded),
+                        title: Text(name),
+                        subtitle: Text(settingsSectionName(l, section)),
+                        onTap: () => setState(() => _open = section),
+                      ),
                   ],
                 ),
             ],
@@ -476,6 +659,15 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         if (Platform.isAndroid)
+          _Row(
+            icon: Icons.apps_rounded,
+            label: l.showAppModeSwitch,
+            child: Switch(
+              value: s.showAppModeSwitch,
+              onChanged: (v) => s.update(showAppModeSwitch: v),
+            ),
+          ),
+        if (Platform.isAndroid)
           ValueListenableBuilder(
             valueListenable: AndroidCore.showSpeed,
             builder: (context, on, _) => _Row(
@@ -499,11 +691,27 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: (v) => s.update(autostart: v),
             ),
           ),
-        // Only with the start at sign-in: dimmed without it.
-        if (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+        // Only with the start at sign-in: dimmed without it. Both rows are
+        // under the one condition: an `if` covers only the element after it.
+        if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) ...[
           Opacity(
             opacity: s.autostart ? 1 : 0.5,
             child: _Row(
+              under: true,
+              icon: Icons.open_in_new_rounded,
+              label: l.autostartShowsWindow,
+              child: Switch(
+                value: s.autostartShowsWindow,
+                onChanged: s.autostart
+                    ? (v) => s.update(autostartShowsWindow: v)
+                    : null,
+              ),
+            ),
+          ),
+          Opacity(
+            opacity: s.autostart ? 1 : 0.5,
+            child: _Row(
+              under: true,
               icon: Icons.link_rounded,
               label: l.connectOnStartup,
               child: Switch(
@@ -512,6 +720,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ),
+        ],
       ],
     ),
   );
@@ -790,7 +999,7 @@ class _SettingsPageState extends State<SettingsPage> {
       title: l.tlsFragment,
       icon: Icons.content_cut_rounded,
       child: RadioGroup<String>(
-        groupValue: mode.isEmpty ? 'off' : mode,
+        groupValue: mode.isEmpty ? 'auto' : mode,
         onChanged: (v) {
           if (v == null || _saving) return;
           _save({
@@ -801,6 +1010,7 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             for (final (value, label, hint) in [
               ('off', l.tlsFragmentOff, l.tlsFragmentOffHint),
+              ('auto', l.tlsFragmentAuto, l.tlsFragmentAutoHint),
               (
                 'first-byte',
                 l.tlsFragmentFirstByte,
@@ -1593,6 +1803,7 @@ class _Row extends StatelessWidget {
     this.value,
     this.child,
     this.onTap,
+    this.under = false,
   });
 
   final IconData icon;
@@ -1600,6 +1811,10 @@ class _Row extends StatelessWidget {
   final String? value;
   final Widget? child;
   final VoidCallback? onTap;
+
+  /// Belongs to the row above it: set in from the start edge, so the two
+  /// read as one setting and what it can do.
+  final bool under;
 
   @override
   Widget build(BuildContext context) {
@@ -1609,8 +1824,21 @@ class _Row extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      child: Container(
+        padding: EdgeInsetsDirectional.fromSTEB(under ? 28 : 4, 10, 4, 10),
+        margin: EdgeInsetsDirectional.only(start: under ? 10 : 0),
+        // A line down the start edge ties the row to the one it belongs to,
+        // which an indent alone leaves to the eye to guess.
+        decoration: under
+            ? BoxDecoration(
+                border: BorderDirectional(
+                  start: BorderSide(
+                    width: 2,
+                    color: theme.colorScheme.primary.withValues(alpha: 0.35),
+                  ),
+                ),
+              )
+            : null,
         child: Row(
           children: [
             Icon(icon, color: muted),

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../core/core_api.dart';
@@ -128,13 +128,36 @@ class _RelayTestDialogState extends State<_RelayTestDialog> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    final compact =
+        MediaQuery.sizeOf(context).width <
+        480 * MediaQuery.textScalerOf(context).scale(14) / 14;
     final result = _result;
     final text = _running
         ? l.testing
         : result?.ok == true
         ? l.relayTestPassed
         : l.relayTestFailed;
+    final copy = TextButton.icon(
+      onPressed: _report.isEmpty
+          ? null
+          : () => Clipboard.setData(ClipboardData(text: _report)),
+      icon: const Icon(Icons.copy_all_outlined),
+      label: Text(l.relayTestCopy, textAlign: TextAlign.center),
+    );
+    final retry = TextButton(
+      onPressed: _running ? null : () => _run(),
+      child: Text(l.retry, textAlign: TextAlign.center),
+    );
+    final close = FilledButton(
+      onPressed: () => Navigator.pop(context),
+      child: Text(l.close),
+    );
     return AlertDialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: compact ? 16 : 40,
+        vertical: 24,
+      ),
+      actionsPadding: compact ? const EdgeInsets.fromLTRB(16, 0, 16, 16) : null,
       title: Text(l.relayTestTitle),
       content: SizedBox(
         width: 720,
@@ -219,23 +242,25 @@ class _RelayTestDialogState extends State<_RelayTestDialog> {
           ],
         ),
       ),
-      actions: [
-        TextButton.icon(
-          onPressed: _report.isEmpty
-              ? null
-              : () => Clipboard.setData(ClipboardData(text: _report)),
-          icon: const Icon(Icons.copy_all_outlined),
-          label: Text(l.relayTestCopy),
-        ),
-        TextButton(
-          onPressed: _running ? null : () => _run(),
-          child: Text(l.retry),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l.close),
-        ),
-      ],
+      actions: compact
+          ? [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: copy),
+                      const SizedBox(width: 8),
+                      Expanded(child: retry),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  close,
+                ],
+              ),
+            ]
+          : [copy, retry, close],
     );
   }
 }

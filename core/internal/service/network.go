@@ -15,6 +15,7 @@ import (
 
 	"github.com/armanlife/arman-vpn-client/core/internal/config"
 	"github.com/armanlife/arman-vpn-client/core/internal/controlplane"
+	"github.com/armanlife/arman-vpn-client/core/internal/evasion"
 	"github.com/armanlife/arman-vpn-client/core/internal/guardian"
 	"github.com/armanlife/arman-vpn-client/core/internal/hellosplit"
 	"github.com/armanlife/arman-vpn-client/core/internal/logx"
@@ -81,7 +82,10 @@ func configureAPIRelay(n config.Network) error {
 	// An enabled personal relay takes precedence. Turning it off must not
 	// disable the independently configured shared Guardian-only fallback.
 	guardian.SetRegionRecovery(nil)
-	if n.SharedRelayInUse() &&
+	// A build that cannot authorize a pooled request must not even fetch the
+	// node list: it would never be served. Only an official build can, so a
+	// copy assembled from this repository alone simply goes without.
+	if n.SharedRelayInUse() && evasion.Authorize(http.MethodGet, "health") != nil &&
 		(controlplane.UsesDefaultTransport() || controlplane.Transport() == apiRelayTransport) {
 		pool := newAutomaticRelays(n)
 		guardian.SetRegionRecovery(func(req *http.Request) (*http.Response, error) {
@@ -161,7 +165,13 @@ type relayFallback struct {
 	network    string
 }
 
+// AllowsRenewalTunnel keeps the configured API relay available as a fallback.
+func (*relayFallback) AllowsRenewalTunnel() bool { return true }
+
 func (t *relayFallback) RoundTrip(req *http.Request) (*http.Response, error) {
+	if guardian.UsesTokenRoutes(req) {
+		return guardian.DoTokenRoutes(req, t.tryGuardianRelay)
+	}
 	first, second := http.RoundTripper(t.direct), http.RoundTripper(t.relay)
 	if t.relayFirst() {
 		first, second = second, first
@@ -184,6 +194,11 @@ func (t *relayFallback) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("%w; %s: %w", err, t.relay.relay.Host, retryErr)
 	}
 	return retry, retryErr
+}
+
+func (t *relayFallback) tryGuardianRelay(req *http.Request) (*http.Response, error) {
+	resp, _, err := t.try(t.relay, req)
+	return resp, err
 }
 
 // try sends req through rt. why is set when another way may be tried: the

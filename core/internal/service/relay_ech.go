@@ -175,7 +175,12 @@ func (e *echDialer) currentKey(ctx context.Context) ([]byte, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if err != nil {
-		if ctx.Err() == nil {
+		// A lookup the caller gave up on says nothing about the network, so
+		// it is not remembered. A lookup that ran out of its own time does:
+		// on a network too slow or hostile for the key query, every later
+		// connection would otherwise pay that wait again before falling back
+		// (users' logs, 2026-11-15: seconds lost on each connect).
+		if ctx.Err() == nil || errors.Is(err, context.DeadlineExceeded) {
 			wait := echKeyRetry
 			if errors.Is(err, resolver.ErrNoECH) {
 				wait = echKeyMaxTTL

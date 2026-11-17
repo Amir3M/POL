@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../app_settings.dart';
@@ -12,14 +12,32 @@ import 'format.dart';
 import 'signin_dialog.dart';
 import 'widgets.dart';
 
-class AccountsPage extends StatelessWidget {
+class AccountsPage extends StatefulWidget {
   const AccountsPage({super.key, required this.core, required this.settings});
 
   final CoreController core;
   final AppSettings settings;
 
   @override
+  State<AccountsPage> createState() => _AccountsPageState();
+}
+
+class _AccountsPageState extends State<AccountsPage> {
+  @override
+  void initState() {
+    super.initState();
+    // A quota figure a day old or more is read again when this page opens:
+    // an account that is not in use is read nowhere else, so its figure would
+    // keep a limit that no longer applies.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => widget.core.refreshStaleQuotas(),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final core = widget.core;
+    final settings = widget.settings;
     final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final list = core.accounts?.accounts ?? const <Account>[];
@@ -80,8 +98,12 @@ class AccountsPage extends StatelessWidget {
             Expanded(
               child: Text(
                 [
-                  l.accountsGuide(_allowance(list)),
-                  if (list.length > 1) l.accountsOrderNote(threshold.round()),
+                  if (_noLimitNow(list))
+                    l.accountsGuideUnlimited
+                  else
+                    l.accountsGuide(_allowance(list)),
+                  if (list.length > 1 && !_noLimitNow(list))
+                    l.accountsOrderNote(threshold.round()),
                 ].join(' '),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -295,6 +317,13 @@ String? accountReason(AppLocalizations l, Account a, double threshold) {
     _ => null,
   };
   return known ?? (a.reason.isEmpty ? null : a.reason);
+}
+
+/// Whether every account that has been read reports no limit, in which case
+/// the note must not name a monthly allowance that is not being applied.
+bool _noLimitNow(List<Account> list) {
+  final read = [for (final a in list) if (a.usage != null) a.usage!];
+  return read.isNotEmpty && read.every((u) => u.unlimited);
 }
 
 /// An account's monthly allowance as the accounts report it (50 GB until
@@ -531,9 +560,22 @@ class _AccountCard extends StatelessWidget {
                           Text(reason, style: muted),
                         ],
                         const SizedBox(height: 12),
-                        if (usage?.unlimited == true)
-                          Text(l.unlimitedQuota, style: muted)
-                        else ...[
+                        if (usage?.unlimited == true) ...[
+                          const QuotaBar(percent: 100, unlimited: true),
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.all_inclusive_rounded,
+                                size: 14,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(l.unlimitedQuota, style: muted),
+                            ],
+                          ),
+                        ] else ...[
                           QuotaBar(
                             percent: usage == null ? 0 : a.usedPercent,
                             threshold: threshold,

@@ -333,6 +333,12 @@ abstract class AppLocalizations {
   /// **'Each Firefox Account has {size} of data a month. You can add several: when one runs out, the app moves to the next one by itself.'**
   String accountsGuide(String size);
 
+  /// No description provided for @accountsGuideUnlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Firefox Accounts have unlimited data at the moment.'**
+  String get accountsGuideUnlimited;
+
   /// No description provided for @accountsOrderNote.
   ///
   /// In en, this message translates to:
@@ -368,6 +374,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t measure the servers\' delay. Check your internet.'**
   String get delayTestFailed;
+
+  /// No description provided for @delayFromLastTest.
+  ///
+  /// In en, this message translates to:
+  /// **'From the last test'**
+  String get delayFromLastTest;
 
   /// No description provided for @createAccountTitle.
   ///
@@ -848,6 +860,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings'**
   String get settingsTitle;
+
+  /// No description provided for @settingsNoMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing matches that'**
+  String get settingsNoMatch;
 
   /// No description provided for @sectionGeneral.
   ///
@@ -1719,6 +1737,18 @@ abstract class AppLocalizations {
   /// **'TLS fragmentation'**
   String get tlsFragment;
 
+  /// No description provided for @tlsFragmentAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic'**
+  String get tlsFragmentAuto;
+
+  /// No description provided for @tlsFragmentAutoHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tries other methods if the normal connection fails.'**
+  String get tlsFragmentAutoHint;
+
   /// No description provided for @tlsFragmentOff.
   ///
   /// In en, this message translates to:
@@ -1947,6 +1977,12 @@ abstract class AppLocalizations {
   /// **'Show speed in the notification'**
   String get speedInNotification;
 
+  /// No description provided for @showAppModeSwitch.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick VPN mode switch'**
+  String get showAppModeSwitch;
+
   /// No description provided for @liveTraffic.
   ///
   /// In en, this message translates to:
@@ -2157,6 +2193,12 @@ abstract class AppLocalizations {
   /// **'Connect on startup'**
   String get connectOnStartup;
 
+  /// No description provided for @autostartShowsWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the app\'s window'**
+  String get autostartShowsWindow;
+
   /// No description provided for @proxyServiceActive.
   ///
   /// In en, this message translates to:
@@ -2253,11 +2295,71 @@ abstract class AppLocalizations {
   /// **'Data used'**
   String get dataUsedTitle;
 
+  /// No description provided for @monthlyData.
+  ///
+  /// In en, this message translates to:
+  /// **'Data'**
+  String get monthlyData;
+
   /// No description provided for @bypassApps.
   ///
   /// In en, this message translates to:
   /// **'Per-app proxy'**
   String get bypassApps;
+
+  /// No description provided for @appClipboardImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import from Clipboard'**
+  String get appClipboardImport;
+
+  /// No description provided for @appClipboardExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export to Clipboard'**
+  String get appClipboardExport;
+
+  /// No description provided for @appClipboardUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t access the clipboard.'**
+  String get appClipboardUnavailable;
+
+  /// No description provided for @appClipboardNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No installed apps match the package names in the clipboard.'**
+  String get appClipboardNoMatches;
+
+  /// No description provided for @appClipboardMerge.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge'**
+  String get appClipboardMerge;
+
+  /// No description provided for @appClipboardReplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace'**
+  String get appClipboardReplace;
+
+  /// No description provided for @appClipboardImportPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Found 1 installed app.} other{Found {count} installed apps.}} Add the matches to the current selection or replace it?'**
+  String appClipboardImportPrompt(int count);
+
+  /// No description provided for @appClipboardImported.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Imported 1 app.} other{Imported {count} apps.}}'**
+  String appClipboardImported(int count);
+
+  /// No description provided for @appClipboardExported.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Copied 1 package name.} other{Copied {count} package names.}}'**
+  String appClipboardExported(int count);
 
   /// No description provided for @connectRetrying.
   ///
@@ -2402,6 +2504,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Only the selected apps go through the VPN; the others connect directly.'**
   String get appModeIncludeHint;
+
+  /// No description provided for @modeAllApps.
+  ///
+  /// In en, this message translates to:
+  /// **'All apps'**
+  String get modeAllApps;
+
+  /// No description provided for @modeAllAppsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'All apps go through the VPN'**
+  String get modeAllAppsHint;
+
+  /// No description provided for @modeSelectedApps.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected apps'**
+  String get modeSelectedApps;
+
+  /// No description provided for @modeSelectedAppsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Only the selected apps'**
+  String get modeSelectedAppsHint;
+
+  /// No description provided for @selectedAppsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected apps  {count}'**
+  String selectedAppsCount(String count);
+
+  /// No description provided for @allTrafficThroughVpn.
+  ///
+  /// In en, this message translates to:
+  /// **'All of the phone\'s traffic goes through the VPN.'**
+  String get allTrafficThroughVpn;
 
   /// No description provided for @fromRegionList.
   ///

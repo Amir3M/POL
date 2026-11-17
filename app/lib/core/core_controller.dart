@@ -374,6 +374,42 @@ class CoreController extends ChangeNotifier {
   Future<void> refreshQuota(Account a) =>
       _account(a.id, () => _require().refreshAccount(a.id));
 
+  /// Reads the quota again for every account whose figure is [after] old or
+  /// more, which the accounts page asks for when it opens. An account that is
+  /// not in use is never read otherwise, so its figure keeps the limit that
+  /// was in force when it was last used, long after that limit changed.
+  /// Failures are passed over: this runs on its own, with nobody to tell.
+  Future<void> refreshStaleQuotas({
+    Duration after = const Duration(days: 1),
+  }) async {
+    if (_refreshingQuotas) return;
+    _refreshingQuotas = true;
+    try {
+      final now = DateTime.now();
+      for (final a in [...?accounts?.accounts]) {
+        if (_disposed) return;
+        // An account that needs its user to sign in again, or that has a
+        // problem, would only fail and spin its card. One turned off is
+        // read like any other: its figure still shows.
+        if (a.status == AccountStatus.reauthRequired ||
+            a.status == AccountStatus.unavailable) {
+          continue;
+        }
+        final checked = a.usage?.checkedAt;
+        if (checked != null && now.difference(checked) < after) continue;
+        try {
+          await refreshQuota(a);
+        } catch (_) {
+          // An account that cannot be read keeps the figure it had.
+        }
+      }
+    } finally {
+      _refreshingQuotas = false;
+    }
+  }
+
+  bool _refreshingQuotas = false;
+
   Future<void> remove(Account a) =>
       _account(a.id, () => _require().removeAccount(a.id));
 
@@ -480,6 +516,7 @@ class CoreController extends ChangeNotifier {
 
   bool _cameToFront = false;
   bool _measuringDelay = false;
+
   static const _highDelayAgain = Duration(seconds: 10);
   static const _oldDelay = Duration(minutes: 1);
 

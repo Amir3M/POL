@@ -109,6 +109,10 @@ The dashboard has no HTTPS: its traffic, including passwords typed into it, cros
 
 OpenWrt has no systemd, and `install.sh` needs bash: [docs/OPENWRT.md](../../docs/OPENWRT.md) is the guide for it, in English, for the people who run it. The core runs there from `/root/arman-vpn/` under procd, OpenWrt's service manager, with an init script (`/etc/init.d/arman-vpn`, `-plain`, `respawn`); devices use it as a proxy after `-setup-server`. The releases' amd64, arm64, and armv7 builds are supported (`x86_64`, `aarch64`, and `arm_cortex-a…` routers; armv7 is built with `GOARM=7`, whose hardware floating point the Go runtime checks for at start, and it encrypts in software). MIPS routers rarely have the room for the 14 MB program or the speed for its encryption, so the guide leaves them out (the core still compiles for them).
 
+### Docker
+
+The same core runs in a container. A release tag `vX.Y.Z` publishes the image ([docs/DOCKER.md](../../docs/DOCKER.md)). The container runs `arman-vpn-core -plain -data-dir /var/lib/arman-vpn`, and that folder is the volume (accounts, settings, logs). The first start runs `-setup-server`, which opens the panel and the proxy to the network and prints the logins. The desktop app and the TUN mode are not in the image.
+
 ## Command line
 
 | Command | Effect |
@@ -313,6 +317,8 @@ The proxy starts when at least one enabled account can supply a pass. With accou
 
 Mozilla rejected the stored credentials (for example after the account's sessions were revoked). Use **Sign in again** on the account.
 
+The connection profile can provide another route for Guardian token requests. See [Guardian recovery and quota](AUTHENTICATION.md#recovery-and-quota) for the order of direct attempts and relay recovery.
+
 ### Guardian returns HTTP 451 (`region_unavailable`)
 
 Use **Test relay health** below **Personal relay** in the app's Relay server settings (or the corresponding dashboard section) to diagnose the entered address before saving it. It also works while the personal relay switch is off. The dialog reports live DNS, TCP, TLS/ECH, HTTP, and health-protocol steps and can copy the report. It checks the relay host only, not Guardian; no account credential is sent and no setting is changed. Closing the dialog cancels the test. Republish an older relay script if HTTP 200 is returned without the health JSON. Both the current Cloudflare and PHP examples provide this local health endpoint.
@@ -384,7 +390,7 @@ A SOCKS5 client's UDP ASSOCIATE gets UDP through Mozilla on the ports it carries
 
 ### A network that blocks by server name
 
-Choose **Settings → TLS fragmentation** in the app, or **Settings → TLS fragmentation** in the dashboard (`network.hello_split`, off by default): **First byte** or **Server name (SNI)** sends the ClientHello to Mozilla and to the relay across several TCP segments, so a filter that reads the name from one packet may not see it. **TLS record** sends it as two TLS records, cut inside the name, for a filter that puts the segments together but reads only the first record. It takes effect on new connections, so try each one and see which connects. It does nothing against a blocked address or a filter that puts the segments together: the relay ([below](#the-api-relay)) and another network are the ways then.
+In **Settings → TLS fragmentation**, **Automatic** is the default. It tries different TLS fragmentation modes for Guardian token requests after the earlier routes fail. The last route that produced a usable pass is tried first for 30 minutes on the same network. The options **Off**, **First byte**, **Server name (SNI)**, and **TLS record** remain available.
 
 ### Nothing connects: a loop
 

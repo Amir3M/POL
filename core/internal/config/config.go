@@ -350,7 +350,7 @@ func Default() Config {
 			SharedRelayEnabled: true,
 			APIRelayECH:        RelayECHOn,
 			GuardianEndpoint:   guardian.DefaultEndpoint,
-			HelloSplit:         hellosplit.Off,
+			HelloSplit:         hellosplit.Auto,
 		},
 		DNS: DNS{
 			Servers:          append([]string(nil), DefaultDNSServers...),
@@ -709,7 +709,7 @@ func (c Config) Validate() error {
 		return fmt.Errorf("network.api_relay_ech_config: %w", err)
 	}
 	if !hellosplit.Valid(c.Network.HelloSplit) {
-		return fmt.Errorf("network.hello_split: %q is not off, sni, first-byte, or record", c.Network.HelloSplit)
+		return fmt.Errorf("network.hello_split: %q is not auto, off, sni, first-byte, or record", c.Network.HelloSplit)
 	}
 	if err := ValidateUpstreamProxy(c.Network, c.Proxy.Listen); err != nil {
 		return fmt.Errorf("network.upstream_proxy: %w", err)

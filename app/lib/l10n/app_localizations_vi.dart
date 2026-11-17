@@ -150,6 +150,10 @@ class AppLocalizationsVi extends AppLocalizations {
   }
 
   @override
+  String get accountsGuideUnlimited =>
+      'Tài khoản Firefox hiện có dữ liệu không giới hạn.';
+
+  @override
   String accountsOrderNote(int percent) {
     return 'Theo thứ tự danh sách này: mỗi tài khoản đến $percent%, tài khoản cuối dùng đến khi hết dữ liệu.';
   }
@@ -171,6 +175,9 @@ class AppLocalizationsVi extends AppLocalizations {
   @override
   String get delayTestFailed =>
       'Không đo được độ trễ của máy chủ. Hãy kiểm tra internet.';
+
+  @override
+  String get delayFromLastTest => 'Từ lần kiểm tra trước';
 
   @override
   String get createAccountTitle => 'Chưa có Firefox Account?';
@@ -448,6 +455,9 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get settingsTitle => 'Cài đặt';
+
+  @override
+  String get settingsNoMatch => 'Không có kết quả';
 
   @override
   String get sectionGeneral => 'Chung';
@@ -930,6 +940,13 @@ class AppLocalizationsVi extends AppLocalizations {
   String get tlsFragment => 'Phân mảnh TLS';
 
   @override
+  String get tlsFragmentAuto => 'Tự động';
+
+  @override
+  String get tlsFragmentAutoHint =>
+      'Thử các cách khác nếu kết nối thông thường thất bại.';
+
+  @override
   String get tlsFragmentOff => 'Tắt';
 
   @override
@@ -1051,6 +1068,9 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get speedInNotification => 'Hiện tốc độ trong thông báo';
+
+  @override
+  String get showAppModeSwitch => 'Chuyển nhanh chế độ VPN';
 
   @override
   String get liveTraffic => 'Lưu lượng hiện tại';
@@ -1182,6 +1202,9 @@ class AppLocalizationsVi extends AppLocalizations {
   String get connectOnStartup => 'Tự động kết nối khi khởi động';
 
   @override
+  String get autostartShowsWindow => 'Hiện cửa sổ ứng dụng';
+
+  @override
   String get proxyServiceActive => 'Dịch vụ proxy đang hoạt động';
 
   @override
@@ -1235,7 +1258,60 @@ class AppLocalizationsVi extends AppLocalizations {
   String get dataUsedTitle => 'Dung lượng đã dùng';
 
   @override
+  String get monthlyData => 'Dữ liệu';
+
+  @override
   String get bypassApps => 'Proxy theo ứng dụng';
+
+  @override
+  String get appClipboardImport => 'Nhập từ bảng tạm';
+
+  @override
+  String get appClipboardExport => 'Xuất vào bảng tạm';
+
+  @override
+  String get appClipboardUnavailable => 'Không thể truy cập bảng tạm.';
+
+  @override
+  String get appClipboardNoMatches =>
+      'Không có ứng dụng đã cài đặt nào khớp với tên gói trong bảng tạm.';
+
+  @override
+  String get appClipboardMerge => 'Gộp';
+
+  @override
+  String get appClipboardReplace => 'Thay thế';
+
+  @override
+  String appClipboardImportPrompt(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Tìm thấy $count ứng dụng đã cài đặt phù hợp. Thêm chúng vào danh sách hiện tại hay thay thế danh sách?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardImported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Đã nhập $count ứng dụng.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardExported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Đã sao chép $count tên gói.',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get connectRetrying => 'Không thể kết nối. Hãy kiểm tra internet.';
@@ -1326,6 +1402,27 @@ class AppLocalizationsVi extends AppLocalizations {
   @override
   String get appModeIncludeHint =>
       'Chỉ các ứng dụng đã chọn đi qua VPN; các ứng dụng khác kết nối trực tiếp.';
+
+  @override
+  String get modeAllApps => 'Tất cả ứng dụng';
+
+  @override
+  String get modeAllAppsHint => 'Tất cả ứng dụng đi qua VPN';
+
+  @override
+  String get modeSelectedApps => 'Ứng dụng đã chọn';
+
+  @override
+  String get modeSelectedAppsHint => 'Chỉ ứng dụng đã chọn';
+
+  @override
+  String selectedAppsCount(String count) {
+    return 'Ứng dụng đã chọn  $count';
+  }
+
+  @override
+  String get allTrafficThroughVpn =>
+      'Toàn bộ lưu lượng của điện thoại đi qua VPN.';
 
   @override
   String fromRegionList(String region) {

@@ -102,7 +102,7 @@ class CoreService : VpnService() {
                 shownSpeed = speed
                 getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(code))
             }
-            if (on && usesVpn(this@CoreService) && appMode(this@CoreService) == MODE_EXCLUDE) {
+            if (on && usesVpn(this@CoreService) && routingEnabled(this@CoreService) && appMode(this@CoreService) == MODE_EXCLUDE) {
                 checkSuggested()
             }
             // The speed changes all the time: shown, it is read more often.
@@ -318,6 +318,10 @@ class CoreService : VpnService() {
      * (Bypass selected apps). Apps no longer installed are skipped.
      */
     private fun applyApps(builder: Builder) {
+        if (!routingEnabled(this)) {
+            builder.addDisallowedApplication(packageName)
+            return
+        }
         fun each(packages: Set<String>, add: (String) -> Unit) {
             for (pkg in packages) {
                 try {
@@ -523,6 +527,24 @@ class CoreService : VpnService() {
 
         fun appSet(context: Context, key: String): Set<String> = prefs(context).getStringSet(key, emptySet()) ?: emptySet()
 
+        const val ROUTING_ENABLED = "routing_enabled"
+
+        fun routingEnabled(context: Context): Boolean {
+            val p = prefs(context)
+            if (p.contains(ROUTING_ENABLED)) {
+                return p.getBoolean(ROUTING_ENABLED, false)
+            }
+            return p.getString(MODE, MODE_EXCLUDE) == MODE_INCLUDE ||
+                    (p.getStringSet(BYPASS, emptySet())?.isNotEmpty() == true)
+        }
+
+        fun setRoutingEnabled(context: Context, on: Boolean) {
+            val p = prefs(context)
+            if (p.contains(ROUTING_ENABLED) && p.getBoolean(ROUTING_ENABLED, false) == on) return
+            p.edit().putBoolean(ROUTING_ENABLED, on).apply()
+            reconnect(context)
+        }
+
         /** Keeps the app choice: the mode and the sets. */
         fun setAppRouting(context: Context, mode: String, sets: Map<String, Set<String>>) {
             val edit = prefs(context).edit().putString(MODE, mode)
@@ -655,8 +677,8 @@ class CoreService : VpnService() {
 
         /** Starts the core, with the proxy [on] or off, if it does not run. */
         @Synchronized
-        fun startCore(context: Context, on: Boolean) {
-            if (mobile.Mobile.running()) return
+        fun startCore(context: Context, on: Boolean): String? {
+            if (mobile.Mobile.running()) return null
             if ((context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
                 importFromComputer(context)
             } else {
@@ -664,10 +686,12 @@ class CoreService : VpnService() {
                 // a release build never takes data from there.
                 File(context.getExternalFilesDir(null), "import").takeIf { it.exists() }?.deleteRecursively()
             }
-            try {
+            return try {
                 mobile.Mobile.start(dataDir(context).absolutePath, on)
+                null
             } catch (e: Exception) {
                 Log.e(TAG, "the core did not start", e)
+                e.message ?: e.javaClass.simpleName
             }
         }
 

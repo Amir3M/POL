@@ -148,7 +148,7 @@ abstract final class CoreLocator {
     };
   }
 
-  static Future<CoreEndpoint> locate(String dataDir) async {
+  static Future<CoreEndpoint> locate(String dataDir, {String? listen}) async {
     final sep = Platform.pathSeparator;
     final tokenPath = File('$dataDir$sep$tokenFile');
     String token;
@@ -160,8 +160,10 @@ abstract final class CoreLocator {
     if (token.isEmpty) {
       throw CoreUnavailable(CoreProblem.notAnswering, tokenPath.path);
     }
-    final listen = await dashboardListen(dataDir);
-    return CoreEndpoint(listenUri(listen), token);
+    return CoreEndpoint(
+      listenUri(listen ?? await dashboardListen(dataDir)),
+      token,
+    );
   }
 
   /// The loopback URL that reaches a listen address; a wildcard host
@@ -398,10 +400,17 @@ class CoreApi {
 
   /// Tests the real delay of [codes] (all when empty) through the tunnel;
   /// the proxy must run (409 otherwise). It can take two minutes.
-  Future<LocationList> pingLocations(List<String> codes) async =>
-      LocationList.fromJson(
-        await _json('POST', '/api/locations/ping', {'codes': codes}, _slowest),
-      );
+  /// [fresh] measures every location: a person pressed the button. Without
+  /// it the core keeps the last figure of a location that was slow lately.
+  Future<LocationList> pingLocations(
+    List<String> codes, {
+    bool fresh = false,
+  }) async => LocationList.fromJson(
+    await _json('POST', '/api/locations/ping', {
+      'codes': codes,
+      'fresh': fresh,
+    }, _slowest),
+  );
 
   /// Chooses the location: a country code, `fastest`, or empty for the
   /// recommended one. The proxy restarts.

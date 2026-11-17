@@ -634,9 +634,10 @@
                 <div class="set-list">
                   <div class="set-row">
                     <span class="set-ic"><svg><use href="#i-cut"/></svg></span>
-                    <span class="set-text"><label for="f-fragment">Fragmentation</label><small class="points"><span>Off: Normal TLS connection</span><span>First byte: Splits the TLS header at the first byte (0x16)</span><span>Server name (SNI): Splits the server name (SNI) across TCP packets</span></small></span>
+                    <span class="set-text"><label for="f-fragment">Fragmentation</label><small class="points"><span>Automatic tries other methods if the normal connection fails.</span><span>Off uses normal TLS.</span></small></span>
                     <span class="set-ctl">
                       <select id="f-fragment" name="network.hello_split">
+                        <option value="auto">Automatic</option>
                         <option value="off">Off</option>
                         <option value="first-byte">First byte</option>
                         <option value="sni">Server name (SNI)</option>

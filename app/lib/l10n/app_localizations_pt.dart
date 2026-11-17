@@ -151,6 +151,10 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
+  String get accountsGuideUnlimited =>
+      'As contas Firefox têm dados ilimitados no momento.';
+
+  @override
   String accountsOrderNote(int percent) {
     return 'Na ordem desta lista: cada uma até $percent%, a última até acabarem os dados.';
   }
@@ -172,6 +176,9 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get delayTestFailed =>
       'Não foi possível medir o atraso dos servidores. Verifique sua internet.';
+
+  @override
+  String get delayFromLastTest => 'Do teste anterior';
 
   @override
   String get createAccountTitle => 'Não tem uma Firefox Account?';
@@ -449,6 +456,9 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get settingsTitle => 'Configurações';
+
+  @override
+  String get settingsNoMatch => 'Nenhum resultado';
 
   @override
   String get sectionGeneral => 'Geral';
@@ -932,6 +942,13 @@ class AppLocalizationsPt extends AppLocalizations {
   String get tlsFragment => 'Fragmentação TLS';
 
   @override
+  String get tlsFragmentAuto => 'Automático';
+
+  @override
+  String get tlsFragmentAutoHint =>
+      'Testa outros métodos se a conexão normal falhar.';
+
+  @override
   String get tlsFragmentOff => 'Desativado';
 
   @override
@@ -1055,6 +1072,9 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get speedInNotification => 'Mostrar a velocidade na notificação';
+
+  @override
+  String get showAppModeSwitch => 'Troca rápida de modo da VPN';
 
   @override
   String get liveTraffic => 'Tráfego ao vivo';
@@ -1186,6 +1206,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get connectOnStartup => 'Conectar ao iniciar o sistema';
 
   @override
+  String get autostartShowsWindow => 'Mostrar a janela do app';
+
+  @override
   String get proxyServiceActive => 'Serviço de proxy ativo';
 
   @override
@@ -1239,7 +1262,61 @@ class AppLocalizationsPt extends AppLocalizations {
   String get dataUsedTitle => 'Dados usados';
 
   @override
+  String get monthlyData => 'Dados';
+
+  @override
   String get bypassApps => 'Proxy por app';
+
+  @override
+  String get appClipboardImport => 'Importar da área de transferência';
+
+  @override
+  String get appClipboardExport => 'Exportar para a área de transferência';
+
+  @override
+  String get appClipboardUnavailable =>
+      'Não foi possível acessar a área de transferência.';
+
+  @override
+  String get appClipboardNoMatches =>
+      'Nenhum app instalado corresponde aos nomes de pacote na área de transferência.';
+
+  @override
+  String get appClipboardMerge => 'Mesclar';
+
+  @override
+  String get appClipboardReplace => 'Substituir';
+
+  @override
+  String appClipboardImportPrompt(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Correspondências entre os apps instalados: $count. Quer adicioná-las à seleção atual ou substituir a seleção?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardImported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Apps importados: $count.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardExported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Nomes de pacote copiados: $count.',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get connectRetrying =>
@@ -1329,6 +1406,27 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get appModeIncludeHint =>
       'Apenas os apps selecionados passam pela VPN; os outros se conectam diretamente.';
+
+  @override
+  String get modeAllApps => 'Todos os apps';
+
+  @override
+  String get modeAllAppsHint => 'Todos os apps passam pela VPN';
+
+  @override
+  String get modeSelectedApps => 'Apps selecionados';
+
+  @override
+  String get modeSelectedAppsHint => 'Somente os apps selecionados';
+
+  @override
+  String selectedAppsCount(String count) {
+    return 'Apps selecionados  $count';
+  }
+
+  @override
+  String get allTrafficThroughVpn =>
+      'Todo o tráfego do telefone passa pela VPN.';
 
   @override
   String fromRegionList(String region) {

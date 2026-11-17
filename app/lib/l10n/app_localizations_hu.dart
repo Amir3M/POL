@@ -150,6 +150,10 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get accountsGuideUnlimited =>
+      'A Firefox-fiókok jelenleg korlátlan adatmennyiséget kapnak.';
+
+  @override
   String accountsOrderNote(int percent) {
     return 'A lista sorrendjében: mindegyik $percent%-ig, az utolsó az adatkerete elfogyásáig.';
   }
@@ -172,6 +176,9 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get delayTestFailed =>
       'Nem sikerült megmérni a szerverek késleltetését. Ellenőrizze az internetet.';
+
+  @override
+  String get delayFromLastTest => 'Az előző mérésből';
 
   @override
   String get createAccountTitle => 'Nincs Firefox Accountja?';
@@ -452,6 +459,9 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get settingsTitle => 'Beállítások';
+
+  @override
+  String get settingsNoMatch => 'Nincs találat';
 
   @override
   String get sectionGeneral => 'Általános';
@@ -935,6 +945,13 @@ class AppLocalizationsHu extends AppLocalizations {
   String get tlsFragment => 'TLS-fragmentálás';
 
   @override
+  String get tlsFragmentAuto => 'Automatikus';
+
+  @override
+  String get tlsFragmentAutoHint =>
+      'Más módszereket próbál ki, ha a szokásos kapcsolat sikertelen.';
+
+  @override
   String get tlsFragmentOff => 'Kikapcsolva';
 
   @override
@@ -1060,6 +1077,9 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get speedInNotification => 'Sebesség megjelenítése az értesítésben';
+
+  @override
+  String get showAppModeSwitch => 'Gyors VPN-módváltás';
 
   @override
   String get liveTraffic => 'Élő forgalom';
@@ -1191,6 +1211,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get connectOnStartup => 'Csatlakozás rendszerindításkor';
 
   @override
+  String get autostartShowsWindow => 'Az alkalmazás ablakának megjelenítése';
+
+  @override
   String get proxyServiceActive => 'A proxyszolgáltatás aktív';
 
   @override
@@ -1245,7 +1268,60 @@ class AppLocalizationsHu extends AppLocalizations {
   String get dataUsedTitle => 'Felhasznált adat';
 
   @override
+  String get monthlyData => 'Adat';
+
+  @override
   String get bypassApps => 'Alkalmazásonkénti proxy';
+
+  @override
+  String get appClipboardImport => 'Importálás a vágólapról';
+
+  @override
+  String get appClipboardExport => 'Exportálás a vágólapra';
+
+  @override
+  String get appClipboardUnavailable => 'Nem sikerült elérni a vágólapot.';
+
+  @override
+  String get appClipboardNoMatches =>
+      'Egyetlen telepített alkalmazás sem egyezik a vágólapon lévő csomagnevekkel.';
+
+  @override
+  String get appClipboardMerge => 'Egyesítés';
+
+  @override
+  String get appClipboardReplace => 'Csere';
+
+  @override
+  String appClipboardImportPrompt(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count telepített alkalmazás egyezik. Hozzáadja őket a jelenlegi kijelöléshez, vagy lecseréli a kijelölést?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardImported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count alkalmazás importálva.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String appClipboardExported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count csomagnév másolva.',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get connectRetrying =>
@@ -1338,6 +1414,26 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get appModeIncludeHint =>
       'Csak a kijelölt alkalmazások mennek a VPN-en át; a többiek közvetlenül csatlakoznak.';
+
+  @override
+  String get modeAllApps => 'Minden alkalmazás';
+
+  @override
+  String get modeAllAppsHint => 'Minden alkalmazás a VPN-en megy';
+
+  @override
+  String get modeSelectedApps => 'Kiválasztott alkalmazások';
+
+  @override
+  String get modeSelectedAppsHint => 'Csak a kiválasztott alkalmazások';
+
+  @override
+  String selectedAppsCount(String count) {
+    return 'Kiválasztott alkalmazások  $count';
+  }
+
+  @override
+  String get allTrafficThroughVpn => 'A telefon teljes forgalma a VPN-en megy.';
 
   @override
   String fromRegionList(String region) {

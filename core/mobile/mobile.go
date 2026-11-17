@@ -99,9 +99,8 @@ func Start(dataDir string, on bool) error {
 	if err != nil {
 		return err
 	}
-	// Every app on the phone can reach its loopback: the API answers only
-	// this app (the local token) and a browser it signs in.
-	d.RequireLocalToken()
+	// Each Android user gets its own listener, protected by its local token.
+	d.UsePrivateDashboard()
 	if !on {
 		d.Off()
 	}
@@ -202,6 +201,17 @@ func LastError() string {
 		return ""
 	}
 	return stopErr.Error()
+}
+
+// DashboardAddress is the local API's address, or empty until it is ready.
+func DashboardAddress() string {
+	mu.Lock()
+	d := running
+	mu.Unlock()
+	if d == nil {
+		return ""
+	}
+	return d.PrivateDashboardAddress()
 }
 
 // DirectApps lists, one per line, the apps of the routing region that the

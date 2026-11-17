@@ -52,6 +52,32 @@ var defaultTransport = func() *http.Transport {
 // (service.relayFallback), rather than waiting for the default's half a
 // minute.
 func QuickTransport(wait time.Duration) *http.Transport {
+	return quickTransport(wait, hellosplit.Wrap)
+}
+
+// QuickTransportWithMode fixes the ClientHello mode for an individual route.
+func QuickTransportWithMode(wait time.Duration, mode string) *http.Transport {
+	return quickTransport(wait, func(conn net.Conn) net.Conn { return hellosplit.WrapMode(conn, mode) })
+}
+
+// QuickTransportTo is QuickTransportWithMode sending every connection to a
+// fixed TCP address instead of the one the request names. Only the address
+// changes: the hello is still Firefox's and still carries the request's own
+// server name, so the server sees the client it always sees.
+func QuickTransportTo(wait time.Duration, mode, address string) *http.Transport {
+	t := QuickTransportWithMode(wait, mode)
+	resolve := t.DialContext
+	t.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
+		return resolve(ctx, network, address)
+	}
+	// Rebuilt on the fixed dialer, and after it: firefoxTLS captures the
+	// dialer it is given, so wrapping the old one would still resolve the
+	// request's own address.
+	t.DialTLSContext = firefoxTLS(t.DialContext, wait)
+	return t
+}
+
+func quickTransport(wait time.Duration, wrap func(net.Conn) net.Conn) *http.Transport {
 	t := defaultTransport.Clone()
 	t.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
 		ctx, cancel := context.WithTimeout(ctx, dialTimeout)
@@ -60,7 +86,7 @@ func QuickTransport(wait time.Duration) *http.Transport {
 		if err != nil {
 			return nil, err
 		}
-		return hellosplit.Wrap(conn), nil
+		return wrap(conn), nil
 	}
 	t.DialTLSContext = firefoxTLS(t.DialContext, wait)
 	t.TLSHandshakeTimeout = wait

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/armanlife/arman-vpn-client/core/internal/fxa"
@@ -39,8 +40,12 @@ func fetchProxyPassCtx(ctx context.Context, endpoint, accessToken string) (*guar
 	budgetCtx, cancelBudget := context.WithTimeout(ctx, guardianRetryBudget)
 	defer cancelBudget()
 	delay := GuardianRetryInitialDelay
+	attemptTimeout := APIRequestTimeout
+	if endpoint == "" || strings.TrimRight(endpoint, "/") == guardian.DefaultEndpoint {
+		attemptTimeout = guardian.TokenRequestTimeout
+	}
 	for attempt := 1; ; attempt++ {
-		attemptCtx, cancel := context.WithTimeout(budgetCtx, APIRequestTimeout)
+		attemptCtx, cancel := context.WithTimeout(budgetCtx, attemptTimeout)
 		pass, err := guardian.FetchProxyPass(attemptCtx, endpoint, accessToken)
 		cancel()
 		if err == nil || !guardian.IsTransient(err) || ctx.Err() != nil {

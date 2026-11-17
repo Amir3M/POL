@@ -282,11 +282,15 @@ func (d *Daemon) StatusView() (StatusView, error) {
 			view.ActiveAccount = &list[i]
 		}
 	}
+	listen := cfg.Dashboard.Listen
+	if addr := d.PrivateDashboardAddress(); addr != "" {
+		listen = addr
+	}
 	view.Dashboard = map[string]any{
-		"listen":                      cfg.Dashboard.Listen,
+		"listen":                      listen,
 		"login_required":              cfg.Dashboard.Username != "" || d.tokenOnly.Load(),
-		"exposed_without_login":       dashboardExposedWithoutLogin(cfg),
-		"plaintext_over_network":      !hostIsLoopbackListen(cfg.Dashboard.Listen),
+		"exposed_without_login":       !d.privateDashboard && dashboardExposedWithoutLogin(cfg),
+		"plaintext_over_network":      !d.privateDashboard && !hostIsLoopbackListen(listen),
 		"socks_exposed_without_login": cfg.Proxy.Username == "" && !hostIsLoopbackListen(cfg.Proxy.Listen),
 	}
 	return view, nil
@@ -568,11 +572,15 @@ func (s *dashboardServer) handleLocationPing(w http.ResponseWriter, r *http.Requ
 	var in struct {
 		// Codes limits the test to these locations (the dashboard's tab).
 		Codes []string `json:"codes"`
+		// Fresh measures every location, slow ones too: a person pressed
+		// the button. Without it a measurement the page starts by itself
+		// keeps the last figure of a location that was slow lately.
+		Fresh bool `json:"fresh"`
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
-	pings, pingedAt, err := s.d.PingAll(r.Context(), in.Codes)
+	pings, pingedAt, err := s.d.PingAll(r.Context(), in.Codes, in.Fresh)
 	if err != nil {
 		writeError(w, http.StatusConflict, err.Error())
 		return

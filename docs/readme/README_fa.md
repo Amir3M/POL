@@ -9,15 +9,14 @@
 
 <h1 align="center">Arman VPN</h1>
 
-<h2 align="center" dir="rtl">⚠️ پروژه غیررسمی</h2>
-
-<h3 align="center" dir="rtl">&rlm;Arman VPN یک پروژه مستقل است. موزیلا آن را نساخته، مالک آن نیست، از آن حمایت نمی‌کند، آن را تأیید نکرده و هیچ ارتباطی با آن ندارد. <a href="#سلب-مسئولیت">سلب مسئولیت</a> را ببینید.</h3>
+<p align="center" dir="rtl"><b>پروژه غیررسمی.</b> &rlm;Arman VPN یک پروژه مستقل است. موزیلا آن را نساخته، مالک آن نیست، از آن حمایت نمی‌کند، آن را تایید نکرده و هیچ ارتباطی با آن ندارد. <a href="#سلب-مسئولیت">سلب مسئولیت</a> را ببینید.</p>
 
 <div align="center">
 
 [![Downloads](https://img.shields.io/github/downloads/armanlife/arman-vpn-client/total?style=flat-square&logo=github&label=Downloads)](https://github.com/armanlife/arman-vpn-client/releases)
 [![Last Version](https://img.shields.io/github/v/release/armanlife/arman-vpn-client?style=flat-square&label=Version)](https://github.com/armanlife/arman-vpn-client/releases/latest)
 [![License](https://img.shields.io/github/license/armanlife/arman-vpn-client?style=flat-square&label=License)](../../LICENSE)
+[![Telegram](https://img.shields.io/badge/Telegram-ArmanVPNClient-26A5E4?style=flat-square&logo=telegram&logoColor=white)](https://t.me/ArmanVPNClient)
 
 </div>
 
@@ -27,7 +26,7 @@
 
 &rlm;**Arman VPN** یک VPN رایگان و متن‌باز است که با حساب فایرفاکس (Firefox Account) کار می‌کند. اینترنت شما را از سرورهای موزیلا، روی زیرساخت **Fastly**، و با تونل‌های امن **HTTP/2 و HTTP/3** عبور می‌دهد.
 
-&rlm;برای **اندروید، ویندوز، مک و لینوکس**؛ کاملاً رایگان، بدون تبلیغات.
+&rlm;برای **اندروید، ویندوز، مک و لینوکس**؛ کاملا رایگان، بدون تبلیغات.
 
 <p align="center"><a href="https://raw.githubusercontent.com/armanlife/arman-vpn-client/main/docs/screenshots/main.webp" target="_blank"><img src="../screenshots/main.webp" width="720" alt="Arman VPN"></a></p>
 
@@ -103,7 +102,7 @@ curl -fsSL https://raw.githubusercontent.com/armanlife/arman-vpn-client/main/ins
 
 ### 🌐 پنل تحت وب
 
-برای سرورهای لینوکس، Arman VPN یک **پنل تحت وب** دارد که در هر مرورگری باز می‌شود و همه امکانات برنامه را دارد: مدیریت حساب‌ها و حجم، انتخاب سرور و تست تأخیر، تست اتصال، لاگ زنده، و همه تنظیمات.
+برای سرورهای لینوکس، Arman VPN یک **پنل تحت وب** دارد که در هر مرورگری باز می‌شود و همه امکانات برنامه را دارد: مدیریت حساب‌ها و حجم، انتخاب سرور و تست تاخیر، تست اتصال، لاگ زنده، و همه تنظیمات.
 
 <p align="center"><img src="../screenshots/web.webp" width="720" alt="Web panel"></p>
 
@@ -155,7 +154,7 @@ $ sudo arman-vpn
 
 ## سلب مسئولیت
 
-این برنامه یک کلاینت مستقل و غیررسمی است که توسعه‌دهنده خودش آن را ساخته و نگهداری می‌کند. محصول موزیلا نیست: موزیلا آن را نساخته، مالک آن نیست، از آن حمایت نمی‌کند، آن را تأیید نکرده و هیچ نقشی در ساخت یا پشتیبانی آن ندارد. سؤال‌ها و مشکلات این برنامه را در همین مخزن مطرح کنید، نه با موزیلا.
+این برنامه یک کلاینت مستقل و غیررسمی است که توسعه‌دهنده خودش آن را ساخته و نگهداری می‌کند. محصول موزیلا نیست: موزیلا آن را نساخته، مالک آن نیست، از آن حمایت نمی‌کند، آن را تایید نکرده و هیچ نقشی در ساخت یا پشتیبانی آن ندارد. سؤال‌ها و مشکلات این برنامه را در همین مخزن مطرح کنید، نه با موزیلا.
 
 شما با اکانت موزیلای خودتان وارد می‌شوید. شرایط، سهمیه و دسترسی اکانت را موزیلا تعیین می‌کند. رمز و اطلاعات ورود شما فقط روی دستگاه خودتان می‌ماند.
 
