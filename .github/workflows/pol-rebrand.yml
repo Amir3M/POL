@@ -78,7 +78,14 @@ jobs:
           grep -F 'android.net.VpnService' <<< "$manifest"
           (cd out && sha256sum pol-vpn-release.apk > pol-vpn-release.apk.sha256)
       - name: Package source and notices
-        run: bash scripts/package-android-source.sh out/pol-vpn-release.apk
+        run: |
+          git diff --name-only HEAD -- app core scripts
+          # Flutter can regenerate Dart localization bindings and its Gradle
+          # wrapper metadata. The archive contains the committed ARBs and
+          # wrapper inputs that reproduce those generated files.
+          git restore --source=HEAD -- ':(glob)app/lib/l10n/app_localizations*.dart' \
+            app/android/gradle/wrapper/gradle-wrapper.properties
+          bash scripts/package-android-source.sh out/pol-vpn-release.apk
       - uses: actions/upload-artifact@v7
         with:
           name: pol-android-rebrand
