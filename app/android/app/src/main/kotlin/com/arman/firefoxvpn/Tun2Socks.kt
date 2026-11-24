@@ -48,8 +48,11 @@ object Tun2Socks {
     fun stop() {
         val tun = device ?: return
         device = null
-        TProxyStopService()
-        tun.close()
+        try {
+            TProxyStopService()
+        } finally {
+            tun.close()
+        }
     }
 
     /**

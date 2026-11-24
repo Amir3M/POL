@@ -1,10 +1,12 @@
 import 'dart:io';
 
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'app_settings.dart';
 import 'core/android_core.dart';
+import 'core/android_tunnel_fixture.dart';
 import 'core/core_api.dart';
 import 'core/core_controller.dart';
 import 'core/updates.dart';
@@ -14,6 +16,9 @@ import 'core/tun_service.dart';
 import 'desktop/desktop_integration.dart';
 import 'ui/app.dart';
 import 'ui/android_preview.dart';
+import 'ui/android_tunnel_test.dart';
+
+const _tunnelTestBuild = kDebugMode && bool.fromEnvironment('POL_TUNNEL_TEST');
 
 /// The desktop app starts the core as its child process (`-app`) and stops
 /// it on quit. Arguments: `--data-dir=<path>` (default: see
@@ -22,6 +27,13 @@ import 'ui/android_preview.dart';
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isAndroid) {
+    if (_tunnelTestBuild) {
+      const fixture = AndroidTunnelFixture();
+      if (await fixture.isEnabled()) {
+        await runAndroid(fixture: fixture);
+        return;
+      }
+    }
     runApp(const AndroidPreviewApp());
     return;
   }
@@ -71,7 +83,7 @@ Future<void> main(List<String> args) async {
 }
 
 /// Retained upstream Android service startup for an authorized integration.
-Future<void> runAndroid() async {
+Future<void> runAndroid({AndroidTunnelFixture? fixture}) async {
   WidgetsFlutterBinding.ensureInitialized();
   AndroidCore.listenForHomeRequests();
   // Edge to edge: the home page's hero colors the status bar.
@@ -82,6 +94,10 @@ Future<void> runAndroid() async {
       systemNavigationBarColor: Colors.transparent,
     ),
   );
+  if (fixture != null) {
+    runApp(AndroidPreviewApp(home: AndroidTunnelTestPage(fixture: fixture)));
+    return;
+  }
   final dataDir = await AndroidCore.dataDir();
   final settings = await AppSettings.load(dataDir);
   await AndroidCore.loadMode();

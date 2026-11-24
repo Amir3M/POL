@@ -4,7 +4,9 @@ import '../app_info.dart';
 import 'android_diagnostics.dart';
 
 class AndroidPreviewApp extends StatelessWidget {
-  const AndroidPreviewApp({super.key});
+  const AndroidPreviewApp({super.key, this.home});
+
+  final Widget? home;
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +23,7 @@ class AndroidPreviewApp extends StatelessWidget {
           onSurfaceVariant: Color(0xFFBDBDBD),
         ),
       ),
-      home: const _PreviewScreen(),
+      home: home ?? const _PreviewScreen(),
     );
   }
 }

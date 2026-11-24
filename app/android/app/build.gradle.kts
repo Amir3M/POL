@@ -17,6 +17,7 @@ fun Properties.hasSigningCredentials(): Boolean =
 
 val debugKey = signingProperties("pol-debug.properties")
 val releaseKey = signingProperties("key.properties")
+val tunnelTest = providers.environmentVariable("POL_TUNNEL_TEST").orNull == "1"
 val releaseKeyConfigured = releaseKey.hasSigningCredentials()
 val releaseKeystoreExists = releaseKey.getProperty("storeFile")?.let { file(it).isFile } == true
 
@@ -33,6 +34,9 @@ android {
     compileSdk = flutter.compileSdkVersion
     // The NDK installed here (Flutter's default, 28.x, is not).
     ndkVersion = "30.0.16248370"
+    buildFeatures {
+        resValues = true
+    }
 
     // The native libraries (the Go core, Flutter's engine, the app's code)
     // are compressed inside the APK, as zip files are: a third of the
@@ -59,6 +63,7 @@ android {
 
     defaultConfig {
         applicationId = "com.polvpn.app"
+        resValue("bool", "pol_tunnel_test", tunnelTest.toString())
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         // The core's aar is built for API 24 (gomobile bind -androidapi 24).
@@ -79,6 +84,10 @@ android {
                 cFlags += listOf("-O3", "-DPKGNAME=com/arman/firefoxvpn", "-DCLSNAME=Tun2Socks")
             }
         }
+    }
+
+    if (tunnelTest) {
+        sourceSets.getByName("main").manifest.srcFile("src/tunnelTest/AndroidManifest.xml")
     }
 
     signingConfigs {
@@ -118,6 +127,9 @@ android {
 // installed (so `gradlew` and Android Studio get it); two native builds are refused.
 androidComponents {
     finalizeDsl { it.externalNativeBuild.cmake.path = null }
+    beforeVariants { variant ->
+        if (tunnelTest && variant.buildType != "debug") variant.enable = false
+    }
     onVariants(selector().withBuildType("release")) { variant ->
         val preBuild = "pre${variant.name.replaceFirstChar { it.uppercaseChar() }}Build"
         tasks.matching { it.name == preBuild }.configureEach { dependsOn(verifyReleaseSigning) }

@@ -18,7 +18,11 @@ class CoreController extends ChangeNotifier {
     this.retryStoppedCore,
     this.turnOn,
     this.tunService,
-  });
+  }) : assert(_connect != null || turnOn != null);
+
+  /// A native Android connection whose state comes from the fixture bridge.
+  CoreController.nativePower(Future<void> Function(bool on) turnOn)
+    : this(null, turnOn: turnOn);
 
   /// Installs and removes the TUN mode's service (Windows); null elsewhere.
   final TunService? tunService;
@@ -41,7 +45,7 @@ class CoreController extends ChangeNotifier {
   final Future<void> Function()? retryStoppedCore;
 
   /// Opens a client; it throws [CoreUnavailable] while there is no core.
-  final Future<CoreApi> Function() _connect;
+  final Future<CoreApi> Function()? _connect;
   final Duration pollInterval;
 
   CoreApi? _api;
@@ -108,6 +112,7 @@ class CoreController extends ChangeNotifier {
   bool get connected => _api != null && unavailable == null;
 
   void start() {
+    if (_connect == null) return;
     _timer ??= Timer.periodic(pollInterval, (_) => refresh());
     refresh();
   }
@@ -115,10 +120,11 @@ class CoreController extends ChangeNotifier {
   /// Reads the status, and the accounts every third tick (the core reads
   /// them from disk). [accountsToo] reads them now.
   Future<void> refresh({bool accountsToo = false}) async {
-    if (_polling || _disposed) return;
+    final connect = _connect;
+    if (connect == null || _polling || _disposed) return;
     _polling = true;
     try {
-      final api = _api ??= await _connect();
+      final api = _api ??= await connect();
       // Flags the app does not carry come from this core.
       RemoteFlags.use(api);
       final next = await api.status();
@@ -247,6 +253,7 @@ class CoreController extends ChangeNotifier {
     notifyListeners();
     try {
       await (turnOn ?? _require().setPower)(on);
+      if (_connect == null) return;
       final api = _require();
       for (var i = 0; i < 20; i++) {
         final next = await api.status();

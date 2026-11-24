@@ -3,6 +3,7 @@ package com.arman.firefoxvpn
 import android.Manifest
 import android.app.ActivityManager
 import android.content.ActivityNotFoundException
+import android.content.ContentResolver
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
@@ -30,6 +31,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.Result
+import org.json.JSONObject
 
 /**
  * The Flutter UI. Channel "app/android": dataDir, startCore (with the proxy
@@ -38,6 +40,10 @@ import io.flutter.plugin.common.MethodChannel.Result
  */
 class MainActivity : FlutterActivity() {
     private var androidChannel: MethodChannel? = null
+    private var tunnelTestChannel: MethodChannel? = null
+    // Reopening the Activity only reports restoration after decrypting the stored session.
+    private var createdTestSessionHere = false
+    private var fixturePowerRequest = 0L
     /** Waits for the user's answer to the VPN permission. */
     private var pendingOn: Result? = null
     // A backup waiting for the place the user picks to save it.
@@ -105,31 +111,36 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app/android")
         androidChannel = channel
+        val tunnelTest = CoreService.tunnelTestEnabled(this)
+        if (tunnelTest) configureTunnelTest(flutterEngine)
         channel.setMethodCallHandler { call, result ->
+            if (tunnelTest && call.method !in FIXTURE_ANDROID_METHODS) {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
             when (call.method) {
                 "dataDir" -> result.success(CoreService.dataDir(this).absolutePath)
                 "startCore" -> result.success(CoreService.startCore(this, on = false))
                 "dashboardAddress" -> result.success(mobile.Mobile.dashboardAddress())
                 "setOn" -> {
-                    if (call.argument<Boolean>("on") != true) {
-                        CoreService.turnOff(this)
-                        result.success(null)
-                    } else {
-                        askForNotifications()
-                        // The first time, Android asks the user to allow the
-                        // VPN; proxy mode needs no VPN.
-                        val consent = if (CoreService.usesVpn(this)) VpnService.prepare(this) else null
-                        if (consent == null) {
-                            turnOn(result)
-                        } else {
-                            pendingOn?.error("vpn_denied", "superseded", null)
-                            pendingOn = result
-                            startActivityForResult(consent, VPN_REQUEST)
+                    val on = call.argument<Boolean>("on") == true
+                    if (tunnelTest && on) {
+                        val request = ++fixturePowerRequest
+                        tunnelTestWork(result) {
+                            val ready = TunnelTestSession.exists(this)
+                            main.post {
+                                if (request != fixturePowerRequest || isFinishing) {
+                                    result.error("vpn_denied", "The VPN permission request was canceled.", null)
+                                } else if (ready) requestVpnPower(true, result)
+                                else result.error("session_required", "Create a local test session first.", null)
+                            }
                         }
+                    } else {
+                        requestVpnPower(on, result)
                     }
                 }
-                "isRunning" -> result.success(mobile.Mobile.running())
-                "connectionMode" -> result.success(CoreService.connectionMode(this))
+                "isRunning" -> result.success(if (tunnelTest) CoreService.tunnelTestEstablished else mobile.Mobile.running())
+                "connectionMode" -> result.success(if (tunnelTest) CoreService.MODE_VPN else CoreService.connectionMode(this))
                 "showSpeed" -> result.success(CoreService.showSpeed(this))
                 "setShowSpeed" -> {
                     CoreService.setShowSpeed(this, call.argument<Boolean>("on") == true)
@@ -214,7 +225,7 @@ class MainActivity : FlutterActivity() {
                 // file's name, or null when the user backs out.
                 "saveFile" -> {
                     val bytes = call.argument<ByteArray>("bytes")
-                    if (bytes == null) {
+                    if (bytes == null || (tunnelTest && bytes.size !in 1..MAX_TEST_REPORT_BYTES)) {
                         result.error("no_data", "nothing to save", null)
                         return@setMethodCallHandler
                     }
@@ -222,8 +233,14 @@ class MainActivity : FlutterActivity() {
                     pendingSave = bytes to result
                     val create = Intent(Intent.ACTION_CREATE_DOCUMENT)
                         .addCategory(Intent.CATEGORY_OPENABLE)
-                        .setType(call.argument<String>("mime") ?: "application/octet-stream")
-                        .putExtra(Intent.EXTRA_TITLE, call.argument<String>("name") ?: "backup")
+                    if (tunnelTest) {
+                        create.setType("text/plain")
+                            .putExtra(Intent.EXTRA_TITLE, "pol-vpn-diagnostics.txt")
+                            .putExtra(Intent.EXTRA_LOCAL_ONLY, true)
+                    } else {
+                        create.setType(call.argument<String>("mime") ?: "application/octet-stream")
+                            .putExtra(Intent.EXTRA_TITLE, call.argument<String>("name") ?: "backup")
+                    }
                     try {
                         startActivityForResult(create, SAVE_REQUEST)
                     } catch (e: ActivityNotFoundException) {
@@ -274,6 +291,147 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    private fun configureTunnelTest(flutterEngine: FlutterEngine) {
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pol/tunnel_fixture")
+        tunnelTestChannel = channel
+        channel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "deviceInfo" -> result.success(
+                    mapOf(
+                        "androidVersion" to Build.VERSION.RELEASE,
+                        "sdk" to Build.VERSION.SDK_INT,
+                        "architecture" to (Build.SUPPORTED_ABIS.firstOrNull() ?: "Unknown"),
+                    ),
+                )
+                "state" -> tunnelTestWork(result) {
+                    val stored = runCatching { TunnelTestSession.exists(this) }
+                    val ready = stored.getOrDefault(false)
+                    val rawState = if (ready) CoreService.tunnelTestCoreStatus() else ""
+                    val state = if (rawState.isEmpty()) JSONObject() else JSONObject(rawState)
+                    val established = CoreService.tunnelTestEstablished
+                    val stopping = CoreService.tunnelTestStopping
+                    val connected = state.optBoolean("connected") && established
+                    val failure = when {
+                        stored.isFailure -> "session_store_unavailable"
+                        CoreService.tunnelTestFailure.isNotEmpty() -> CoreService.tunnelTestFailure
+                        else -> state.optString("failureCode").takeIf { it in FIXTURE_CORE_FAILURES }.orEmpty()
+                    }
+                    val status = mapOf(
+                        "enabled" to true,
+                        "sessionReady" to ready,
+                        "sessionRestored" to (ready && !createdTestSessionHere),
+                        "tokenRefreshed" to state.optBoolean("tokenRefreshed"),
+                        "proxyAuthorized" to state.optBoolean("proxyAuthorized"),
+                        "vpnEstablished" to established,
+                        "connected" to connected,
+                        "connecting" to (CoreService.on && !connected && failure.isEmpty()),
+                        "disconnecting" to stopping,
+                        "requests" to state.optLong("requests"),
+                        "bytesUp" to state.optLong("bytesUp"),
+                        "bytesDown" to state.optLong("bytesDown"),
+                        "quotaLimit" to state.optLong("quotaLimit").takeUnless { state.isNull("quotaLimit") },
+                        "quotaRemaining" to state.optLong("quotaRemaining").takeUnless { state.isNull("quotaRemaining") },
+                        "sessionRenewed" to state.optBoolean("sessionRenewed"),
+                        "renewals" to state.optLong("renewals"),
+                        "failure" to failure,
+                    )
+                    main.post { result.success(status) }
+                }
+                "signIn" -> tunnelTestWork(result) {
+                    if (TunnelTestSession.create(this)) {
+                        createdTestSessionHere = true
+                        CoreService.clearTunnelTestStatus()
+                    }
+                    main.post { result.success(true) }
+                }
+                "signOut" -> {
+                    cancelPendingVpn()
+                    CoreService.turnOff(this)
+                    CoreService.clearTunnelTestStatus()
+                    tunnelTestWork(result) {
+                        TunnelTestSession.clear(this)
+                        createdTestSessionHere = false
+                        main.post { result.success(true) }
+                    }
+                }
+                "renewSession" -> tunnelTestWork(result) {
+                    check(CoreService.tunnelTestEstablished)
+                    mobile.Mobile.renewTunnelTest()
+                    main.post { result.success(true) }
+                }
+                "openProbe" -> result.success(openTunnelTestPage())
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun openTunnelTestPage(): Boolean {
+        if (!CoreService.tunnelTestEstablished) return false
+        val view = Intent(Intent.ACTION_VIEW, Uri.parse(CoreService.TUNNEL_TEST_URL))
+            .addCategory(Intent.CATEGORY_BROWSABLE)
+        return try {
+            startActivity(view)
+            true
+        } catch (_: ActivityNotFoundException) {
+            false
+        } catch (_: SecurityException) {
+            false
+        }
+    }
+
+    private fun tunnelTestWork(result: Result, work: () -> Unit) {
+        worker.execute {
+            try {
+                work()
+            } catch (_: Exception) {
+                main.post { result.error("fixture_unavailable", "The local tunnel test could not complete.", null) }
+            } catch (_: LinkageError) {
+                main.post { result.error("fixture_unavailable", "The local tunnel test could not complete.", null) }
+            }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun requestVpnPower(on: Boolean, result: Result) {
+        if (!on) {
+            cancelPendingVpn()
+            CoreService.turnOff(this)
+            result.success(null)
+            return
+        }
+        val tunnelTest = CoreService.tunnelTestEnabled(this)
+        if (!tunnelTest) askForNotifications()
+        // First use goes through Android's own permission dialog.
+        val consent = if (tunnelTest || CoreService.usesVpn(this)) VpnService.prepare(this) else null
+        if (consent == null) {
+            turnOn(result)
+        } else {
+            cancelPendingVpn()
+            pendingOn = result
+            try {
+                startActivityForResult(consent, VPN_REQUEST)
+            } catch (_: RuntimeException) {
+                cancelPendingVpn()
+            }
+        }
+    }
+
+    private fun cancelPendingVpn() {
+        fixturePowerRequest++
+        val pending = pendingOn ?: return
+        pendingOn = null
+        pending.error("vpn_denied", "The VPN permission request was canceled.", null)
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        androidChannel?.setMethodCallHandler(null)
+        androidChannel = null
+        tunnelTestChannel?.setMethodCallHandler(null)
+        tunnelTestChannel = null
+        cancelPendingVpn()
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     private val worker = Executors.newSingleThreadExecutor()
@@ -349,9 +507,11 @@ class MainActivity : FlutterActivity() {
     private fun turnOn(result: Result) {
         try {
             CoreService.turnOn(this)
+            if (CoreService.tunnelTestEnabled(this)) askForNotifications()
             result.success(null)
         } catch (e: Exception) {
-            result.error("start_failed", e.message, null)
+            val message = if (CoreService.tunnelTestEnabled(this)) "The local test tunnel could not start." else e.message
+            result.error("start_failed", message, null)
         }
     }
 
@@ -380,13 +540,19 @@ class MainActivity : FlutterActivity() {
             result.success(null)
             return
         }
+        val tunnelTest = CoreService.tunnelTestEnabled(this)
+        if (tunnelTest && uri.scheme != ContentResolver.SCHEME_CONTENT) {
+            result.error("write_failed", "Android could not save the diagnostic report.", null)
+            return
+        }
         worker.execute {
             val name = try {
                 contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) }
                     ?: throw IllegalStateException("the file could not be opened")
                 displayName(uri)
             } catch (e: Exception) {
-                main.post { result.error("write_failed", e.message, null) }
+                val message = if (tunnelTest) "Android could not save the diagnostic report." else e.message
+                main.post { result.error("write_failed", message, null) }
                 return@execute
             }
             main.post { result.success(name) }
@@ -430,7 +596,11 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         // Off, nothing needs the core once the UI is gone.
-        if (isFinishing && !CoreService.on) CoreService.stopCore()
+        if (CoreService.tunnelTestEnabled(this)) {
+            worker.shutdown()
+        } else if (isFinishing && !CoreService.on) {
+            CoreService.stopCore()
+        }
         super.onDestroy()
     }
 
@@ -439,6 +609,11 @@ class MainActivity : FlutterActivity() {
         private const val SAVE_REQUEST = 8
         private const val OPEN_REQUEST = 9
         private const val MAX_OPEN_BYTES = 16 * 1024 * 1024
+        private const val MAX_TEST_REPORT_BYTES = 64 * 1024
+        private val FIXTURE_ANDROID_METHODS = setOf("setOn", "isRunning", "connectionMode", "abi", "isTv", "saveFile")
+        private val FIXTURE_CORE_FAILURES = setOf(
+            "fixture_core_stopped", "fixture_status_failed", "fixture_connection_failed",
+        )
     }
 
     /** The service's notification needs this on Android 13 and later. */

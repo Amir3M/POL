@@ -17,12 +17,14 @@ import android.net.VpnService
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.system.OsConstants
 import android.util.Log
 import android.widget.Toast
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * The Go core (core/mobile, built into libs/core.aar by gomobile) runs in
@@ -55,6 +57,19 @@ class CoreService : VpnService() {
     /** onDestroy ran: a network callback still in flight must not post again. */
     @Volatile
     private var destroyed = false
+
+    private var tunnelTestRun = 0L
+
+    private val watchTunnelTest = object : Runnable {
+        override fun run() {
+            if (destroyed || !on) return
+            if (!mobile.Mobile.running() || Tun2Socks.ended()) {
+                failTunnelTest("tunnel_stopped")
+                return
+            }
+            main.postDelayed(this, COUNTRY_POLL_MS)
+        }
+    }
 
     /**
      * Keeps the notification on the country the traffic leaves from, and
@@ -217,6 +232,11 @@ class CoreService : VpnService() {
             turnOff(this)
             return START_NOT_STICKY
         }
+        if (tunnelTestEnabled(this)) {
+            if (intent?.action == ACTION_TUNNEL_TEST) startTunnelTest()
+            else stopSelf()
+            return START_NOT_STICKY
+        }
         if (intent?.action == ACTION_RECONNECT) {
             // New settings: the apps left out of the VPN, or the mode.
             if (on) {
@@ -258,11 +278,38 @@ class CoreService : VpnService() {
 
     /** Another VPN took over, or the user ended this one in the settings. */
     override fun onRevoke() {
-        turnOff(this)
+        if (tunnelTestEnabled(this)) {
+            main.post { if (!destroyed) failTunnelTest("vpn_revoked") }
+        } else {
+            turnOff(this)
+        }
     }
 
     override fun onDestroy() {
         destroyed = true
+        if (tunnelTestEnabled(this)) {
+            main.removeCallbacks(watchTunnelTest)
+            closeTunnelTestInterface()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            tunnelTestEstablished = false
+            tunnelTestForeground = false
+            tunnelTestStopping = true
+            on = false
+            tunnelTestWorker.execute {
+                try {
+                    tunnelTestLastStatus = tunnelTestRun to readTunnelTestCoreStatus()
+                    mobile.Mobile.stopTunnelTest()
+                } catch (_: Exception) {
+                    tunnelTestFailure = "core_stop_failed"
+                } catch (_: LinkageError) {
+                    tunnelTestFailure = "core_stop_failed"
+                } finally {
+                    tunnelTestStopping = false
+                }
+            }
+            super.onDestroy()
+            return
+        }
         main.removeCallbacks(watchCountry)
         // A notification posted at the last moment goes too.
         getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
@@ -275,28 +322,81 @@ class CoreService : VpnService() {
         super.onDestroy()
     }
 
+    private fun startTunnelTest() {
+        if (tunnelTestForeground) return
+        tunnelTestRun = tunnelTestGeneration.get()
+        startInForeground()
+        tunnelTestForeground = true
+        // Finish entering the foreground even if Disconnect was tapped during launch.
+        if (!on) {
+            stopSelf()
+            return
+        }
+        // Lockdown can block all traffic outside this test's single destination.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isLockdownEnabled) {
+            failTunnelTest("vpn_lockdown")
+            return
+        }
+        tunnelTestWorker.execute {
+            val failure = try {
+                val session = TunnelTestSession.read(this)
+                    ?: throw IllegalStateException("No fixture session")
+                mobile.Mobile.startTunnelTest(dataDir(this).absolutePath, session)
+                null
+            } catch (_: Exception) {
+                "core_start_failed"
+            } catch (_: LinkageError) {
+                "core_start_failed"
+            }
+            main.post {
+                if (destroyed || !on) return@post
+                if (failure != null || !startTunnel()) {
+                    failTunnelTest(failure ?: "tunnel_start_failed")
+                    return@post
+                }
+                tunnelTestEstablished = true
+                getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(""))
+                main.post(watchTunnelTest)
+            }
+        }
+    }
+
+    private fun failTunnelTest(code: String) {
+        tunnelTestFailure = code
+        turnOff(this)
+    }
+
     /** Sets up the VPN interface and runs the tunnel to the core on its device. */
     private fun startTunnel(): Boolean {
-        if (prepare(this) != null) {
-            // No permission (revoked since): the app asks again.
-            Log.w(TAG, "the VPN has no permission")
-            return false
-        }
         return try {
+            if (prepare(this) != null) {
+                // No permission (revoked since): the app asks again.
+                Log.w(TAG, "the VPN has no permission")
+                return false
+            }
+            val tunnelTest = tunnelTestEnabled(this)
+            val sessionName = if (tunnelTest) R.string.tunnel_test_app_name else R.string.app_name
             // tun.mtu when the user set one, else the app's own.
             val mtu = mobile.Mobile.tunMTU().takeIf { it > 0 } ?: MTU
             val config = mobile.Mobile.tunConfig(mtu)
             val builder = Builder()
-                .setSession(getString(R.string.app_name))
+                .setSession(getString(sessionName))
                 .setMtu(mtu)
-                .addAddress("172.19.0.1", 30)
-                .addRoute("0.0.0.0", 0)
-                // The tunnel answers DNS sent here (core/mobile), with
-                // addresses that stand for names.
-                .addDnsServer("172.19.0.2")
-                .addAddress("fdfe:dcba:9876::1", 126)
-                .addRoute("::", 0)
-            applyApps(builder)
+            if (tunnelTest) {
+                builder.addAddress("192.0.2.2", 32)
+                    .addRoute(TUNNEL_TEST_ADDRESS, 32)
+                    .allowFamily(OsConstants.AF_INET6)
+                    .addDisallowedApplication(packageName)
+            } else {
+                builder.addAddress("172.19.0.1", 30)
+                    .addRoute("0.0.0.0", 0)
+                    // The tunnel answers DNS sent here (core/mobile), with
+                    // addresses that stand for names.
+                    .addDnsServer("172.19.0.2")
+                    .addAddress("fdfe:dcba:9876::1", 126)
+                    .addRoute("::", 0)
+                applyApps(builder)
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
             val tun = builder.establish() ?: return false
             if (!Tun2Socks.start(config, tun)) {
@@ -306,8 +406,10 @@ class CoreService : VpnService() {
             tunnelUpAt = System.currentTimeMillis()
             true
         } catch (e: Throwable) { // An Error too: the native library may not load.
-            Log.e(TAG, "the VPN did not start", e)
-            Toast.makeText(this, e.message ?: e.toString(), Toast.LENGTH_LONG).show()
+            if (!tunnelTestEnabled(this)) {
+                Log.e(TAG, "the VPN did not start", e)
+                Toast.makeText(this, e.message ?: e.toString(), Toast.LENGTH_LONG).show()
+            }
             false
         }
     }
@@ -406,6 +508,7 @@ class CoreService : VpnService() {
      */
     private fun notification(code: String): Notification {
         val state = when {
+            tunnelTestEnabled(this) && tunnelTestEstablished -> "Android tunnel test · local fixture"
             code == NO_NETWORK -> getString(R.string.notification_no_network)
             code.length == 2 -> "${flag(code)}  ${Locale.Builder().setRegion(code).build().displayCountry}"
             else -> getString(R.string.notification_connecting)
@@ -431,7 +534,7 @@ class CoreService : VpnService() {
         }
         return builder
             .setSmallIcon(R.drawable.ic_stat_logo)
-            .setContentTitle(getString(R.string.app_name))
+            .setContentTitle(getString(if (tunnelTestEnabled(this)) R.string.tunnel_test_app_name else R.string.app_name))
             .setContentText(text)
             .setStyle(Notification.BigTextStyle().bigText(text))
             .setContentIntent(open)
@@ -443,6 +546,9 @@ class CoreService : VpnService() {
 
     companion object {
         const val ACTION_STOP = "com.arman.firefoxvpn.STOP"
+        private const val ACTION_TUNNEL_TEST = "com.polvpn.app.TUNNEL_TEST"
+        internal const val TUNNEL_TEST_ADDRESS = "192.0.2.1"
+        internal const val TUNNEL_TEST_URL = "http://192.0.2.1:8080/"
         private const val ACTION_RECONNECT = "com.arman.firefoxvpn.RECONNECT"
         private const val PREFS = "vpn"
         private const val MODE = "app_mode"
@@ -632,8 +738,50 @@ class CoreService : VpnService() {
         var connected = false
             private set
 
+        private val tunnelTestWorker = Executors.newSingleThreadExecutor()
+        @Volatile internal var tunnelTestEstablished = false
+            private set
+        @Volatile internal var tunnelTestFailure = ""
+            private set
+        @Volatile internal var tunnelTestStopping = false
+            private set
+        @Volatile private var tunnelTestForeground = false
+        private val tunnelTestGeneration = AtomicLong()
+        @Volatile private var tunnelTestLastStatus = 0L to ""
+
+        internal fun tunnelTestEnabled(context: Context): Boolean =
+            context.resources.getBoolean(R.bool.pol_tunnel_test)
+
+        private fun readTunnelTestCoreStatus(): String = try {
+            mobile.Mobile.tunnelTestStatus()
+        } catch (_: Exception) {
+            ""
+        } catch (_: LinkageError) {
+            ""
+        }
+
+        private fun closeTunnelTestInterface() {
+            runCatching { Tun2Socks.stop() }.onFailure {
+                tunnelTestFailure = "tunnel_stop_failed"
+            }
+        }
+
+        internal fun tunnelTestCoreStatus(): String =
+            if (on) readTunnelTestCoreStatus()
+            else tunnelTestLastStatus.takeIf { it.first == tunnelTestGeneration.get() }?.second.orEmpty()
+
+        internal fun clearTunnelTestStatus() {
+            tunnelTestGeneration.incrementAndGet()
+            tunnelTestLastStatus = 0L to ""
+            tunnelTestFailure = ""
+        }
+
         /** The core's data folder: accounts, settings, logs, the local token. */
-        fun dataDir(context: Context): File = File(context.filesDir, "core")
+        fun dataDir(context: Context): File = if (tunnelTestEnabled(context)) {
+            File(context.cacheDir, "tunnel-test-core")
+        } else {
+            File(context.filesDir, "core")
+        }
 
         /**
          * Turns the proxy on, and in VPN mode the VPN. For the VPN the user
@@ -644,6 +792,25 @@ class CoreService : VpnService() {
          */
         fun turnOn(context: Context) {
             val intent = Intent(context, CoreService::class.java)
+            if (tunnelTestEnabled(context)) {
+                if (on) return
+                check(!tunnelTestStopping) { "The test tunnel is still stopping." }
+                clearTunnelTestStatus()
+                on = true
+                try {
+                    intent.action = ACTION_TUNNEL_TEST
+                    val service = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(intent)
+                    } else {
+                        context.startService(intent)
+                    }
+                    checkNotNull(service)
+                } catch (error: Exception) {
+                    on = false
+                    throw error
+                }
+                return
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -666,6 +833,14 @@ class CoreService : VpnService() {
 
         /** Turns the VPN and the proxy off; the core keeps its API. */
         fun turnOff(context: Context) {
+            if (tunnelTestEnabled(context)) {
+                if (on) tunnelTestStopping = true
+                on = false
+                tunnelTestEstablished = false
+                closeTunnelTestInterface()
+                if (tunnelTestForeground) context.stopService(Intent(context, CoreService::class.java))
+                return
+            }
             stopTunnel()
             if (mobile.Mobile.running()) mobile.Mobile.setOn(false)
             on = false
@@ -678,6 +853,8 @@ class CoreService : VpnService() {
         /** Starts the core, with the proxy [on] or off, if it does not run. */
         @Synchronized
         fun startCore(context: Context, on: Boolean): String? {
+            // The test's loopback fixture is the only daemon start in this APK.
+            if (tunnelTestEnabled(context)) return "fixture_only"
             if (mobile.Mobile.running()) return null
             if ((context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
                 importFromComputer(context)
