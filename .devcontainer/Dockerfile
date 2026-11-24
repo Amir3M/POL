@@ -1,6 +1,18 @@
-FROM mcr.microsoft.com/devcontainers/java:1-21-bookworm@sha256:0af991049cded4b8d5a90d2614289ceec390779ad6a3e4b70957e2b4f3bb1230
+FROM docker.io/library/eclipse-temurin:21-jdk-noble@sha256:dc333cdac241f073941f043792f2a2f9b790bfe7cd98ef2843c08880986708de
 
-# Flutter's Linux host test engine loads libGL. jq selects the official Go checksum.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends jq libgl1 \
+    && apt-get install -y --no-install-recommends \
+        build-essential ca-certificates curl git jq libgl1 sudo unzip xz-utils zip \
     && rm -rf /var/lib/apt/lists/*
+
+# Ubuntu 24.04 may reserve UID 1000 for ubuntu.
+RUN if getent passwd ubuntu >/dev/null; then \
+        usermod -l vscode -d /home/vscode -m ubuntu \
+        && groupmod -n vscode ubuntu; \
+    else \
+        useradd --create-home --shell /bin/bash --uid 1000 vscode; \
+    fi \
+    && printf 'vscode ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/vscode \
+    && chmod 0440 /etc/sudoers.d/vscode
+
+USER vscode

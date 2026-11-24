@@ -8,7 +8,7 @@ Updated November 24, 2026.
 
 **Last verified source:** Arman VPN `492dd7f389c539790cde3d07167535d28788a0d0`. Upstream Go tests and vet checks passed, including the gVisor TUN suite. Go mobile bindings and the native Android TUN adapter built. Flutter analysis and all 220 tests passed.
 
-**Build status:** Baseline APK assembly is in progress. The official Flutter binary host returned HTTP 403 in this environment. The source checks used a matching Flutter artifact cache from a digest-verified OCI layer.
+**Build status:** The local baseline assembly stopped on HTTP 403 for official Flutter Maven dependencies. The source checks used a matching Flutter artifact cache from a digest-verified OCI layer. The first hosted run reached the Android setup step. It exposed a mismatch with the runner's preinstalled NDK path, now corrected for the retry. [Draft foundation PR](https://github.com/Amir3M/POL/pull/1)
 
 **Blockers:** Public Mozilla documentation does not grant POL access to Firefox's built-in VPN. Live sign-in and tunnel tests require an approved OAuth client, the approved service contract and applicable relay permissions. No physical Android device is connected. Production distribution requires an owner's release signing configuration and a verified notices package.
 

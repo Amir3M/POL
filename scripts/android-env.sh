@@ -82,6 +82,12 @@ pol_check_ndk() {
     [[ "$(sed -n 's/^Pkg.Revision[[:space:]]*=[[:space:]]*//p' "$ANDROID_NDK_HOME/source.properties")" == "$POL_NDK_VERSION" ]]
 }
 
+# Hosted runners can export a path to a different preinstalled NDK. Reuse an
+# override only when it already points to the version required by this checkout.
+if ! pol_check_ndk; then
+    export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$POL_NDK_VERSION"
+fi
+
 pol_require_sdk() {
     [[ -f "$ANDROID_HOME/platforms/android-$POL_ANDROID_API/android.jar" ]] &&
         [[ -x "$ANDROID_HOME/build-tools/$POL_BUILD_TOOLS_VERSION/apksigner" ]] &&

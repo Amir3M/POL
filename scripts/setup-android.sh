@@ -48,8 +48,6 @@ sdk_packages=()
 [[ -x "$ANDROID_HOME/build-tools/$POL_BUILD_TOOLS_VERSION/apksigner" ]] ||
     sdk_packages+=("build-tools;$POL_BUILD_TOOLS_VERSION")
 if ! pol_check_ndk; then
-    [[ "$ANDROID_NDK_HOME" == "$ANDROID_HOME/ndk/$POL_NDK_VERSION" ]] ||
-        pol_error "ANDROID_NDK_HOME must point to NDK $POL_NDK_VERSION."
     sdk_packages+=("ndk;$POL_NDK_VERSION")
 fi
 
