@@ -233,7 +233,7 @@ def check_diagnostics(*expected):
     wait_for_label("Local tunnel test")
 
 
-def run(apk, require_shell_transfer):
+def run(apk, update_apk, require_shell_transfer):
     # This test installs an APK and accepts VPN consent. Restrict it to emulators.
     serial = adb("get-serialno").stdout.strip()
     if not serial.startswith(b"emulator-"):
@@ -257,11 +257,11 @@ def run(apk, require_shell_transfer):
         print("Test session restored after process exit. Quota is unknown before connecting.")
 
         stop_process()
-        adb("install", "-r", apk, timeout=150)
+        adb("install", "-r", str(update_apk.resolve()), timeout=150)
         launch()
         wait_for_label("Test session · Restored")
         wait_for_label(UNKNOWN_QUOTA)
-        print("Test session restored after reinstalling the identical APK in place.")
+        print("Test session restored after installing a signed update in place.")
 
         connect()
         wait_for_label(FULL_QUOTA)
@@ -306,12 +306,13 @@ parser = argparse.ArgumentParser(
     description="Smoke-test a signed POL tunnel-test APK on a booted AOSP emulator.",
 )
 parser.add_argument("apk", type=Path)
+parser.add_argument("--update-apk", required=True, type=Path, help="Same-signer APK with a higher build number.")
 parser.add_argument("--require-shell-transfer", action="store_true", help="Fail if this emulator cannot route shell UID traffic.")
 args = parser.parse_args()
-if not args.apk.is_file():
-    parser.error("apk must be an existing file")
+if not args.apk.is_file() or not args.update_apk.is_file():
+    parser.error("both APKs must be existing files")
 try:
-    run(args.apk, args.require_shell_transfer)
+    run(args.apk, args.update_apk, args.require_shell_transfer)
 except (SmokeFailure, ShellTransferUnavailable, OSError, subprocess.TimeoutExpired) as error:
     print(f"Android tunnel smoke failed: {error}", file=sys.stderr)
     sys.exit(1)

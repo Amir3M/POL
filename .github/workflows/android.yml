@@ -261,6 +261,26 @@ jobs:
             printf 'APK: %s bytes, SHA-256 `%s`.\n' \
               "$(stat -c '%s' "out/$apk")" "$(cut -d ' ' -f 1 "out/$apk.sha256")" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
+          if [[ "$POL_BUILD_MODE" == tunnel-test ]]; then
+            next_code=$((VERSION_CODE + 1))
+            (
+              cd app
+              POL_TUNNEL_TEST=1 flutter build apk --debug --no-pub --build-number="$next_code" \
+                --dart-define=POL_TUNNEL_TEST=true --dart-define="APP_VERSION=$VERSION_NAME" \
+                --dart-define="POL_BUILD_ID=${GITHUB_SHA:0:12}"
+            )
+            update_apk="$RUNNER_TEMP/pol-tunnel-update.apk"
+            cp app/build/app/outputs/flutter-apk/app-debug.apk "$update_apk"
+            update_badging="$("$tools/aapt" dump badging "$update_apk")"
+            update_package="$(sed -n '/^package: /p' <<< "$update_badging")"
+            update_signing="$("$tools/apksigner" verify --print-certs "$update_apk")"
+            update_signer="$(sed -nE 's/^Signer #[0-9]+ certificate SHA-256 digest: (.*)$/\1/p' <<< "$update_signing")"
+            if [[ "$update_package" != "package: name='$apk_id' versionCode='$next_code' versionName='$VERSION_NAME'"* ||
+                  "$update_signer" != "$signer" ]]; then
+              echo '::error::The emulator update APK must increment versionCode and retain the package and signer'
+              exit 1
+            fi
+          fi
 
       - name: Enable Android emulator acceleration
         if: env.POL_BUILD_MODE == 'tunnel-test'
@@ -280,7 +300,7 @@ jobs:
           target: default
           arch: x86_64
           disable-animations: true
-          script: bash scripts/smoke-android-tunnel.sh out/pol-vpn-debug.apk
+          script: bash scripts/smoke-android-tunnel.sh out/pol-vpn-debug.apk --update-apk "$RUNNER_TEMP/pol-tunnel-update.apk" --require-shell-transfer
 
       - name: Prepare offline preview release notes
         if: steps.version.outputs.tag_suffix == 'preview'

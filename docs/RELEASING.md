@@ -45,7 +45,7 @@ git tag pol-vX.Y.Z-tunnel-test APPROVED_COMMIT
 git push origin refs/tags/pol-vX.Y.Z-tunnel-test
 ```
 
-The tag workflow verifies the build and signer, packages the four release assets and publishes a separate **Tunnel Test** prerelease. The test uses `com.polvpn.app.debug` and the established debug certificate so it can update the offline preview in place. Use the [controlled tunnel checklist](DEVICE_TEST_CHECKLIST.md#controlled-tunnel-test) for device verification.
+The tag workflow verifies the build and signer and runs the test on an Android emulator. The emulator checks session restoration after process exit and after installing a same-signer APK one build number higher. That APK is used only during CI. The workflow verifies transfer in both directions from Android's shell UID, packages the four release assets and publishes a separate **Tunnel Test** prerelease. The test uses `com.polvpn.app.debug` and the established debug certificate so it can update the offline preview in place. Use the [controlled tunnel checklist](DEVICE_TEST_CHECKLIST.md#controlled-tunnel-test) for device verification.
 
 ## Prepare a release candidate
 
