@@ -24,7 +24,7 @@
 - [x] Trace the missing Android Connect path against Arman v1.0.19 and verify the existing core with a local transfer fixture.
 - [x] Implement the separate Android tunnel-test mode with Keystore-backed synthetic sessions, fixture quota and per-stage diagnostics.
 - [x] Verify the Go fixture's authorization, transfer, renewal and destination restrictions with loopback integration tests.
-- [ ] Verify the signed tunnel-test APK on Android and publish the hosted prerelease.
+- [x] Verify the signed tunnel-test APK on the Android emulator, including a higher-code signed update, and publish and verify the public prerelease.
 - [ ] Verify the controlled transfer from another app and session continuity across a higher build number on a physical phone.
 - [ ] Obtain provider approval, POL-specific OAuth registration and the service and quota contracts.
 - [ ] Implement authorized sign-in, token restoration and refresh, logout, secure storage, backup exclusions and session reset.
