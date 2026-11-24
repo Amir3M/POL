@@ -1,7 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../app_info.dart';
+import '../core/android_online_diagnostics.dart';
 import 'android_diagnostics.dart';
+
+const _debugOnlineDiagnostics =
+    kDebugMode && !bool.fromEnvironment('POL_TUNNEL_TEST')
+    ? AndroidOnlineDiagnostics.approvalRequired()
+    : null;
 
 class AndroidPreviewApp extends StatelessWidget {
   const AndroidPreviewApp({super.key, this.home});
@@ -73,7 +80,9 @@ class _PreviewScreen extends StatelessWidget {
                       TextButton(
                         onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (_) => const AndroidDiagnosticsPage(),
+                            builder: (_) => const AndroidDiagnosticsPage(
+                              online: _debugOnlineDiagnostics,
+                            ),
                           ),
                         ),
                         child: const Text('Diagnostics'),

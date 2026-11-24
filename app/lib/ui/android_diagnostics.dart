@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../app_info.dart';
 import '../core/android_core.dart';
+import '../core/android_online_diagnostics.dart';
 import '../core/android_tunnel_fixture.dart';
 import 'format.dart';
 
@@ -20,10 +21,16 @@ const _androidArchitectures = {
 final _androidVersionPattern = RegExp(r'^\d{1,2}(?:\.\d{1,2}){0,2}$');
 
 class AndroidDiagnosticsPage extends StatefulWidget {
-  const AndroidDiagnosticsPage({super.key, this.fixture, this.lastIssue});
+  const AndroidDiagnosticsPage({
+    super.key,
+    this.fixture,
+    this.lastIssue,
+    this.online,
+  }) : assert(fixture == null || online == null);
 
   final AndroidTunnelFixture? fixture;
   final TunnelFixtureIssue? lastIssue;
+  final AndroidOnlineDiagnostics? online;
 
   @override
   State<AndroidDiagnosticsPage> createState() => _AndroidDiagnosticsPageState();
@@ -36,6 +43,7 @@ class _AndroidDiagnosticsPageState extends State<AndroidDiagnosticsPage> {
   Future<String> _readReport() async {
     final fixture = widget.fixture;
     final lastIssue = widget.lastIssue;
+    final online = widget.online;
     Map<Object?, Object?> info = const {};
     try {
       final response = fixture == null
@@ -67,6 +75,7 @@ class _AndroidDiagnosticsPageState extends State<AndroidDiagnosticsPage> {
       'Architecture: $androidArchitecture',
       ...await _connectionDetails(fixture),
       if (lastIssue != null) 'Last test issue: ${lastIssue.message}',
+      if (online != null) ...await _onlineDetails(online),
     ].join('\n');
   }
 
@@ -98,6 +107,24 @@ class _AndroidDiagnosticsPageState extends State<AndroidDiagnosticsPage> {
       'Test download bytes: ${state.bytesDown}',
       if (state.currentIssue case final issue?)
         'Current test issue: ${issue.message}',
+    ];
+  }
+
+  Future<List<String>> _onlineDetails(AndroidOnlineDiagnostics online) async {
+    final state = await online.readState();
+    final quota = state?.quota;
+    final quotaLabel = switch (quota) {
+      null => 'Unknown',
+      _ when quota.unlimited => 'Unlimited',
+      _ when quota.remaining == 0 => 'Exhausted',
+      _ =>
+        '${formatBytes(quota.remaining!)} remaining of ${formatBytes(quota.limit!)}',
+    };
+    return [
+      'Online stage: ${state?.stage.label ?? 'Unavailable'}',
+      'HTTP status: ${state?.httpStatus ?? 'Unavailable'}',
+      'Reason: ${state?.reason?.label ?? 'Unavailable'}',
+      'Provider quota: $quotaLabel',
     ];
   }
 
