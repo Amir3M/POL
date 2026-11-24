@@ -1,0 +1,105 @@
+name: POL Android rebrand
+on:
+  push:
+    branches: [codex/pol-arman-visual-fork]
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    env:
+      GOMOBILE_VERSION: v0.0.0-20260908204917-8b95e45f8d3e
+      BUILD_TOOLS_VERSION: 36.0.0
+      SIGNER_SHA256: a2ec7957ee651c464aaf978810e5613791ec1b342b23a714fbbc65a3e31bb95d
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.50.0
+          channel: stable
+          cache: true
+      - name: Test Go
+        working-directory: core
+        run: |
+          go vet ./...
+          go test ./...
+          go test -tags with_gvisor ./internal/tunstack/
+      - name: Test Flutter
+        working-directory: app
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+      - name: Install Android tooling and bind the core
+        run: |
+          ndk="$(sed -n 's/.*ndkVersion = "\(.*\)".*/\1/p' app/android/app/build.gradle.kts)"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "ndk;$ndk" "platforms;android-36" "build-tools;$BUILD_TOOLS_VERSION"
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$ndk"
+          go install "golang.org/x/mobile/cmd/gomobile@$GOMOBILE_VERSION" \
+            "golang.org/x/mobile/cmd/gobind@$GOMOBILE_VERSION"
+          mkdir -p app/android/app/libs
+          v="$(awk '/^version:/ {split($2, version, "+"); print version[1]}' app/pubspec.yaml)"
+          cd core
+          gomobile bind -target=android -androidapi 24 -trimpath \
+            -ldflags "-s -w -X github.com/armanlife/arman-vpn-client/core/internal/version.Current=$v" \
+            -o ../app/android/app/libs/core.aar ./mobile
+      - name: Build and verify the signed APK
+        env:
+          KEYSTORE: ${{ secrets.POL_ANDROID_DEBUG_KEYSTORE_BASE64 }}
+          PASSWORD: ${{ secrets.POL_ANDROID_DEBUG_KEYSTORE_PASSWORD }}
+        run: |
+          key_file="$RUNNER_TEMP/pol-rebrand.p12"
+          trap 'rm -f "$key_file" app/android/key.properties' EXIT
+          test -n "$KEYSTORE" && test -n "$PASSWORD"
+          printf '%s' "$KEYSTORE" | base64 -d > "$key_file"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=debug\nkeyPassword=%s\n' \
+            "$key_file" "$PASSWORD" "$PASSWORD" > app/android/key.properties
+          v="$(awk '/^version:/ {split($2, version, "+"); print version[1]}' app/pubspec.yaml)"
+          (cd app && flutter build apk --release --no-pub --dart-define="APP_VERSION=$v")
+          mkdir -p out
+          apk=out/pol-vpn-release.apk
+          cp app/build/app/outputs/flutter-apk/app-release.apk "$apk"
+          build_tools="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION"
+          signing="$("$build_tools/apksigner" verify --print-certs "$apk")"
+          grep -Fx "Signer #1 certificate SHA-256 digest: $SIGNER_SHA256" <<< "$signing"
+          badging="$("$build_tools/aapt" dump badging "$apk")"
+          grep -F "package: name='com.polvpn.app.debug'" <<< "$badging"
+          grep -Fx "application-label:'POL VPN'" <<< "$badging"
+          manifest="$("$build_tools/aapt" dump xmltree "$apk" AndroidManifest.xml)"
+          grep -F 'android.net.VpnService' <<< "$manifest"
+          (cd out && sha256sum pol-vpn-release.apk > pol-vpn-release.apk.sha256)
+      - name: Package source and notices
+        run: bash scripts/package-android-source.sh out/pol-vpn-release.apk
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pol-android-rebrand
+          path: out/
+          if-no-files-found: error
+  publish:
+    needs: android
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pol-android-rebrand
+          path: release
+      - name: Publish signed prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd release && sha256sum --check pol-vpn-release.apk.sha256)
+          tag="pol-arman-1.0.19-$(printf '%.12s' "$GITHUB_SHA")"
+          gh release create "$tag" release/* --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --prerelease --title 'POL VPN based on Arman VPN 1.0.19' \
+            --notes 'Android rebrand of Arman VPN v1.0.19, distributed under GPL-3.0. Corresponding source, notices and APK checksum are attached. Live connection on a physical phone is pending.'
