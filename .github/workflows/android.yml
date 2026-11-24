@@ -37,6 +37,7 @@ jobs:
     env:
       POL_BUILD_MODE: ${{ inputs.build_type || 'debug' }}
       POL_PREVIEW_BUILD: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+      POL_PREVIEW_SIGNER_SHA256: a2ec7957ee651c464aaf978810e5613791ec1b342b23a714fbbc65a3e31bb95d
     steps:
       - uses: actions/checkout@v7
         with:
@@ -196,6 +197,10 @@ jobs:
             keytool -exportcert -keystore "$key_file" -storepass:env APK_KEYSTORE_PASSWORD \
               -alias "$key_alias" -file "$cert_file"
             expected_signer="$(sha256sum "$cert_file" | cut -d ' ' -f 1)"
+            if [[ "$POL_PREVIEW_BUILD" == true && "$expected_signer" != "$POL_PREVIEW_SIGNER_SHA256" ]]; then
+              echo '::error::The preview key must match the established POL debug signing certificate'
+              exit 1
+            fi
           elif [[ "$REQUIRE_SIGNING" == true || -n "$key_data" || -n "$APK_KEYSTORE_PASSWORD" ]]; then
             printf '::error::Configure both POL_ANDROID_%s_KEYSTORE_BASE64 and POL_ANDROID_%s_KEYSTORE_PASSWORD\n' \
               "${POL_BUILD_MODE^^}" "${POL_BUILD_MODE^^}"
@@ -213,12 +218,19 @@ jobs:
             sha256sum --check "$apk.sha256"
           )
           tools="$ANDROID_HOME/build-tools/$POL_BUILD_TOOLS_VERSION"
+          "$tools/zipalign" -c -P 16 4 "out/$apk"
           badging="$("$tools/aapt" dump badging "out/$apk")"
           package_line="$(sed -n '/^package: /p' <<< "$badging")"
           if [[ "$package_line" != "package: name='$apk_id' versionCode='$VERSION_CODE' versionName='$VERSION_NAME'"* ]]; then
             printf '::error::Unexpected Android manifest metadata: %s\n' "$package_line"
             exit 1
           fi
+          for expected in "sdkVersion:'24'" "targetSdkVersion:'36'" "native-code: 'arm64-v8a' 'armeabi-v7a' 'x86_64'"; do
+            if ! grep -Fxq "$expected" <<< "$badging"; then
+              printf '::error::Missing expected APK compatibility metadata: %s\n' "$expected"
+              exit 1
+            fi
+          done
           signing="$("$tools/apksigner" verify --print-certs "out/$apk")"
           signer="$(sed -nE 's/^Signer #[0-9]+ certificate SHA-256 digest: (.*)$/\1/p' <<< "$signing")"
           if [[ -n "$expected_signer" && "${signer,,}" != "$expected_signer" ]]; then
@@ -228,6 +240,10 @@ jobs:
           if [[ -n "$expected_signer" ]]; then
             echo 'upload=true' >> "$GITHUB_OUTPUT"
             printf 'APK certificate SHA-256: `%s`\n' "$signer" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ "$POL_PREVIEW_BUILD" == true ]]; then
+            printf 'APK: %s bytes, SHA-256 `%s`.\n' \
+              "$(stat -c '%s' "out/$apk")" "$(cut -d ' ' -f 1 "out/$apk.sha256")" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Prepare offline preview release notes
@@ -239,7 +255,7 @@ jobs:
           cat > out/release-notes.md <<'NOTES'
           This offline Android preview includes POL VPN branding and diagnostics. Sign-in and VPN connectivity are disabled pending service authorization.
 
-          Download `pol-vpn-debug.apk` and its checksum, then run `sha256sum --check pol-vpn-debug.apk.sha256` before installation. The signed APK uses the Android package `com.polvpn.app.debug`.
+          The signed APK uses `com.polvpn.app.debug`. It supports Android 7.0 and later on ARM64, ARMv7, and x86-64 devices. Use `pol-vpn-debug.apk.sha256` to verify your download.
 
           The release includes the corresponding source archive, dependency notices and GPL-3.0 license.
           NOTES
@@ -266,7 +282,7 @@ jobs:
           fi
 
       - name: Package corresponding source and license
-        if: steps.build.outputs.upload == 'true'
+        if: steps.build.outputs.upload == 'true' || github.event_name == 'pull_request'
         run: |
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           scripts/package-android-source.sh "out/pol-vpn-$POL_BUILD_MODE.apk"
@@ -332,7 +348,7 @@ jobs:
           check_tag
 
           assets=(pol-vpn-debug.apk pol-vpn-debug.apk.sha256 pol-vpn-source.tar.gz
-                  pol-vpn-notices.tar.gz SOURCE.txt LICENSE LICENSE_COMPLIANCE.md)
+                  pol-vpn-notices.tar.gz)
           for asset in "${assets[@]}"; do
             test -s "out/$asset"
           done

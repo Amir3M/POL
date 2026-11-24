@@ -21,6 +21,19 @@ Open **Actions → Android → Run workflow**, choose **debug**, and run the wor
 
 The debug application ID is `com.polvpn.app.debug`. Keep the signing key and application ID consistent across updates. Increment the build number in `app/pubspec.yaml` for a new distributed version. The build includes its Git revision in the offline diagnostics report. The source archive and dependency notices ship alongside uploaded APKs.
 
+## Publish an offline preview
+
+The repository owner starts publication by creating a fresh `pol-vX.Y.Z-preview` tag on the approved commit, including a commit on the draft PR branch. The tag version must match `app/pubspec.yaml`. Use a higher version and build number for each subsequent preview.
+
+```sh
+git tag pol-vX.Y.Z-preview APPROVED_COMMIT
+git push origin refs/tags/pol-vX.Y.Z-preview
+```
+
+The tag workflow builds with official pinned dependencies, runs tests, verifies the package, signature and checksum, packages notices and matching source, and uploads an Actions artifact. A separate job compares the downloaded GitHub Release assets to that artifact before publishing a prerelease. Tag approval is independent of the draft PR. Each preview is labeled offline and excluded from GitHub's latest stable release selection.
+
+The established debug certificate SHA-256 is `a2ec7957ee651c464aaf978810e5613791ec1b342b23a714fbbc65a3e31bb95d`. Its protected PKCS12 copy uses the `debug` alias. Installations signed with this certificate can update in place. Android requires uninstalling previews signed by a different certificate before installing this one, which removes that app's local data. The preview workflow checks the certificate before building. Review the workflow pin and document the update impact before any signing-key rotation.
+
 ## Prepare a release candidate
 
 Set `version: X.Y.Z+BUILD` in `app/pubspec.yaml`, with a build number higher than the previous published APK, and add a corresponding `## [X.Y.Z]` section to `CHANGELOG.md`. Manually dispatch the **Android** workflow, choose **release**, and enter `X.Y.Z`. Download the tested, signed artifact and verify it with `sha256sum --check pol-vpn-release.apk.sha256`.
