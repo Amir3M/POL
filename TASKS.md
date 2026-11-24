@@ -39,6 +39,7 @@
 
 - [x] Configure and statically validate the GitHub Android workflow.
 - [x] Verify corresponding source and notice packaging for the local preview APK.
-- [ ] Verify a hosted workflow and test APK updates with the owner's shared debug signing key.
+- [x] Publish the offline GitHub preview and verify the public APK, matching source and notices, and signature continuity with the existing debug signing key.
+- [ ] Test APK updates with the shared debug signing identity on a physical Android device.
 - [ ] Complete regression and physical testing, transitive license inventory and corresponding source distribution.
 - [ ] Configure production signing and publish an owner-approved pre-release after the release checks pass.
