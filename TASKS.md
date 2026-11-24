@@ -21,8 +21,10 @@
 
 ## M3 · Functional verification
 
+- [x] Trace the missing Android Connect path against Arman v1.0.19 and verify the existing core with a local transfer fixture.
 - [ ] Obtain provider approval, POL-specific OAuth registration and the service and quota contracts.
 - [ ] Implement authorized sign-in, token restoration and refresh, logout, secure storage, backup exclusions and session reset.
+- [ ] Build the separate authorized connection APK and test upload and download from another app while Arman is closed.
 - [x] Remove hardcoded and aggregate quota claims from the retained account UI. Test unknown, reported unlimited and finite usage, reset dates and refresh failure with fixtures.
 - [ ] Present provider-backed limited, unlimited, unknown, refresh-failed and exhausted quota states.
 - [ ] Run the physical Android checklist for connectivity, sessions, splits, leaks and network transitions.
