@@ -35,6 +35,8 @@ const (
 type SOCKSServer struct {
 	// Auth, when set, requires username/password authentication.
 	Auth *socksCredentials
+	// TCPOnly accepts SOCKS5 CONNECT and rejects HTTP proxy and UDP requests.
+	TCPOnly bool
 	// Notices, when set, collects requests refused because of a limit, for
 	// the dashboard.
 	Notices *Notices
@@ -131,11 +133,17 @@ func (s *SOCKSServer) handleConn(conn net.Conn) {
 	}
 	client := &bufferedConn{Conn: conn, r: reader}
 	if first[0] != socksVersion5 {
-		s.serveHTTP(client, clientAddr, start)
+		if !s.TCPOnly {
+			s.serveHTTP(client, clientAddr, start)
+		}
 		return
 	}
 	command, target, replyCode, err := handshakeSOCKS5Request(client, s.Auth)
 	if err == nil && command == socksCmdUDP {
+		if s.TCPOnly {
+			_ = writeSOCKSReply(conn, socksReplyCmdUnsup, nil)
+			return
+		}
 		if s.handshakeTimeout > 0 {
 			_ = conn.SetDeadline(time.Time{})
 		}

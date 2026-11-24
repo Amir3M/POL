@@ -68,6 +68,10 @@ const tunMaxSessions = 3000
 // with the proxy on or off (SetOn). It returns once the daemon is started;
 // Run continues in the background.
 func Start(dataDir string, on bool) error {
+	return start(dataDir, on, nil)
+}
+
+func start(dataDir string, on bool, fixture func(*service.Daemon)) error {
 	mu.Lock()
 	defer mu.Unlock()
 	if running != nil {
@@ -99,8 +103,12 @@ func Start(dataDir string, on bool) error {
 	if err != nil {
 		return err
 	}
-	// Each Android user gets its own listener, protected by its local token.
-	d.UsePrivateDashboard()
+	if fixture != nil {
+		fixture(d)
+	} else {
+		// Each Android user gets its own listener, protected by its local token.
+		d.UsePrivateDashboard()
+	}
 	if !on {
 		d.Off()
 	}

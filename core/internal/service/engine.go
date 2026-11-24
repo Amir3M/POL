@@ -114,13 +114,19 @@ func (d *Daemon) startEngine() (*proxyEngine, error) {
 	if socks.Auth == nil && !hostIsLoopbackListen(cfg.Proxy.Listen) {
 		logx.Warn("the SOCKS5 proxy is reachable from other devices without a password; set proxy.username and proxy.password listen=%s", cfg.Proxy.Listen)
 	}
-	go proxy.ServeSOCKS(ln, socks)
+	if d.tunnelFixtureAuthority == "" {
+		go proxy.ServeSOCKS(ln, socks)
+	}
 	tunUser, tunPassword := d.tunCredentials()
 	tunSOCKS := proxy.NewSOCKSServer(routed, config.HandshakeTimeout, config.IdleTimeout, tunMaxConnections)
 	tunSOCKS.Auth = proxy.SOCKSCredentials(tunUser, tunPassword)
 	tunSOCKS.Notices = d.notices
 	tunSOCKS.Conns, tunSOCKS.Inbound, tunSOCKS.Transport = d.conns, "tun", engine.currentTransport
 	tunSOCKS.Allow, tunSOCKS.AllowUDP = d.TunnelAllows, d.TunnelAllowsUDP
+	if fixture := d.tunnelFixtureAuthority; fixture != "" {
+		tunSOCKS.TCPOnly = true
+		tunSOCKS.Allow = func(host, port string) bool { return net.JoinHostPort(host, port) == fixture }
+	}
 	engine.tunSOCKS = tunSOCKS
 	if err := proxy.WriteIdleStatus(engine.statusFile, proxy.StatusSleeping); err != nil {
 		logx.Warn("writing status file failed path=%s err=%s", engine.statusFile, logx.Err(err))
@@ -408,7 +414,7 @@ func (e *proxyEngine) serverSwitched(next proxy.Candidate) {
 func (d *Daemon) runController(engine *proxyEngine, controller *proxy.Controller) bool {
 	// Set before the loops start, which may rebuild the session.
 	controller.OnSessionRebuilt = func() {
-		if engine.currentController() == controller && d.currentEngine() == engine {
+		if d.tunnelFixtureAuthority == "" && engine.currentController() == controller && d.currentEngine() == engine {
 			d.autoTest(engine, "session rebuilt")
 		}
 	}

@@ -253,10 +253,12 @@ func (d *Daemon) wake(e *proxyEngine, why wakeReason) error {
 		return nil
 	}
 	logx.Info("proxy connected for its first use account=%s took=%s", logx.Email(d.pool.ActiveName()), time.Since(started).Round(time.Millisecond))
-	if why != wakeForTest {
-		go d.autoTest(e, "proxy connected")
+	if d.tunnelFixtureAuthority == "" {
+		if why != wakeForTest {
+			go d.autoTest(e, "proxy connected")
+		}
+		d.registerDevices()
 	}
-	d.registerDevices()
 	return nil
 }
 

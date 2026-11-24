@@ -94,7 +94,9 @@ type engineState struct {
 // and the dashboard. The dashboard keeps running while the proxy engine is
 // stopped, waiting for an account, or restarting after a settings change.
 type Daemon struct {
-	paths DataPaths
+	// Set only by the tagged Android tunnel fixture before Run.
+	tunnelFixtureAuthority string
+	paths                  DataPaths
 	// notices outlives engine restarts, so the dashboard can still explain
 	// a refused request after the proxy restarted.
 	notices *proxy.Notices
@@ -464,7 +466,7 @@ func (d *Daemon) superviseEngine() {
 // default gateway; on Android, what the app reports), the proxy start
 // waits instead of retrying Mozilla.
 func (d *Daemon) mustWaitForNetwork() bool {
-	return !networkConnected()
+	return d.tunnelFixtureAuthority == "" && !networkConnected()
 }
 
 // waitForNetwork shows the wait and returns once a network connects or a

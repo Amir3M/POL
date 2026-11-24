@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>POL VPN tunnel test</title>
+<style>
+  html { color-scheme: dark; background: #111; }
+  body { font: 1rem system-ui, sans-serif; max-width: 38rem; margin: 4rem auto; padding: 0 1.25rem; }
+  button { padding: .75rem 1rem; margin: .25rem; }
+  code { overflow-wrap: anywhere; }
+</style>
+<h1>POL tunnel fixture response</h1>
+<p>This page was served by the local test tunnel. It uses a synthetic account and quota.</p>
+<p>Run proof <code>{{PROOF}}</code></p>
+<button type="button" id="download">Download test data</button>
+<button type="button" id="upload">Upload test data</button>
+<p id="result" role="status">Ready to transfer data.</p>
+<script>
+  const size = {{BYTES}};
+  const result = document.querySelector('#result');
+  async function transfer(isUpload) {
+    result.textContent = 'Transferring test data…';
+    try {
+      const response = await fetch(isUpload ? '/upload' : '/download', {
+        method: isUpload ? 'POST' : 'GET',
+        cache: 'no-store',
+        body: isUpload ? new Uint8Array(size).fill(0x50) : undefined
+      });
+      if (!response.ok) throw new Error('transfer failed');
+      if (isUpload) {
+        if (await response.text() !== String(size)) throw new Error('upload check failed');
+      } else {
+        const data = new Uint8Array(await response.arrayBuffer());
+        if (data.length !== size || !data.every(byte => byte === 0x50)) {
+          throw new Error('download check failed');
+        }
+      }
+      result.textContent = `${isUpload ? 'Uploaded' : 'Downloaded'} ${size} bytes successfully.`;
+    } catch {
+      result.textContent = 'Test transfer failed.';
+    }
+  }
+  document.querySelector('#download').onclick = () => transfer(false);
+  document.querySelector('#upload').onclick = () => transfer(true);
+</script>
+</html>
