@@ -2,7 +2,11 @@
 
 POL uses the Arman VPN Android stack. The imported source is `v1.0.19` at `492dd7f389c539790cde3d07167535d28788a0d0`. The source map below identifies the interfaces to preserve when changing branding or screens. [Upstream audit](UPSTREAM_AUDIT.md)
 
-## Android components
+## Android preview
+
+The Android launcher opens `AndroidPreviewApp` in a Flutter activity. The merged manifest omits internet access, Android VPN services, the quick tile and widget, and disables app backup. The app does not start the Go daemon, sign in, poll for upstream updates or display invented locations or quota. The Android build checks these restrictions in the packaged APK. The Kotlin namespace and JNI names remain aligned for a later authorized integration.
+
+## Retained upstream components
 
 | Component | Role |
 | --- | --- |

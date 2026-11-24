@@ -2,7 +2,7 @@
 
 POL means “bridge” in Persian. POL VPN is an independent, open-source Android VPN project based on Arman VPN. Windows and Linux are future targets.
 
-The current work verifies the upstream Android build and prepares POL's own identity and release process. Live Mozilla sign-in and network access require authorization for POL. See the current milestone and build status before installing or testing any APK.
+The first POL Android preview has an independent package ID, launcher and splash. It opens offline. Live sign-in and VPN connections require a POL-specific authorization from Mozilla. See the current build and device verification status before installing an APK.
 
 - [Project status](PROJECT_STATUS.md)
 - [Android build](docs/ANDROID_BUILD.md)

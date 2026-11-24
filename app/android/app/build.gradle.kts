@@ -6,12 +6,26 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// The release key, from android/key.properties (never in Git: CI writes it
-// from the repository's secrets). storeFile, storePassword, keyAlias,
-// keyPassword.
-val releaseKey = Properties().apply {
-    val file = rootProject.file("key.properties")
-    if (file.exists()) file.inputStream().use { load(it) }
+fun signingProperties(fileName: String): Properties = Properties().apply {
+    val propertiesFile = rootProject.file(fileName)
+    if (propertiesFile.isFile) propertiesFile.reader(Charsets.UTF_8).use { load(it) }
+}
+
+fun Properties.hasSigningCredentials(): Boolean =
+    listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+        .all { !getProperty(it).isNullOrBlank() }
+
+val debugKey = signingProperties("pol-debug.properties")
+val releaseKey = signingProperties("key.properties")
+val releaseKeyConfigured = releaseKey.hasSigningCredentials()
+val releaseKeystoreExists = releaseKey.getProperty("storeFile")?.let { file(it).isFile } == true
+
+val verifyReleaseSigning = tasks.register("verifyPolReleaseSigning") {
+    doLast {
+        check(releaseKeyConfigured && releaseKeystoreExists) {
+            "Release signing requires a keystore and all four fields in android/key.properties."
+        }
+    }
 }
 
 android {
@@ -44,8 +58,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.arman.firefoxvpn"
+        applicationId = "com.polvpn.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         // The core's aar is built for API 24 (gomobile bind -androidapi 24).
@@ -69,8 +82,19 @@ android {
     }
 
     signingConfigs {
+        if (rootProject.file("pol-debug.properties").isFile) {
+            require(debugKey.hasSigningCredentials()) {
+                "android/pol-debug.properties must specify all four signing fields."
+            }
+            getByName("debug") {
+                storeFile = file(debugKey.getProperty("storeFile"))
+                storePassword = debugKey.getProperty("storePassword")
+                keyAlias = debugKey.getProperty("keyAlias")
+                keyPassword = debugKey.getProperty("keyPassword")
+            }
+        }
         create("release") {
-            if (!releaseKey.isEmpty) {
+            if (releaseKeyConfigured) {
                 storeFile = file(releaseKey.getProperty("storeFile"))
                 storePassword = releaseKey.getProperty("storePassword")
                 keyAlias = releaseKey.getProperty("keyAlias")
@@ -80,11 +104,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+        }
         release {
-            // Signed with the release key; without key.properties (a fork,
-            // a machine without the key) with the debug key, which cannot
-            // update an installed release.
-            signingConfig = signingConfigs.getByName(if (releaseKey.isEmpty) "debug" else "release")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
@@ -94,6 +118,10 @@ android {
 // installed (so `gradlew` and Android Studio get it); two native builds are refused.
 androidComponents {
     finalizeDsl { it.externalNativeBuild.cmake.path = null }
+    onVariants(selector().withBuildType("release")) { variant ->
+        val preBuild = "pre${variant.name.replaceFirstChar { it.uppercaseChar() }}Build"
+        tasks.matching { it.name == preBuild }.configureEach { dependsOn(verifyReleaseSigning) }
+    }
 }
 
 kotlin {

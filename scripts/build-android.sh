@@ -58,9 +58,29 @@ mkdir -p "$POL_REPO_ROOT/app/android/app/libs"
 apk="$POL_REPO_ROOT/app/build/app/outputs/flutter-apk/app-$build_mode.apk"
 build_tools="$ANDROID_HOME/build-tools/$POL_BUILD_TOOLS_VERSION"
 "$build_tools/apksigner" verify --verbose "$apk"
-package_id="$("$build_tools/aapt" dump badging "$apk" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
+badging="$("$build_tools/aapt" dump badging "$apk")"
+package_id="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" <<< "$badging")"
 [[ "$package_id" == "$expected_package" ]] ||
     pol_error "APK package is '$package_id'; expected '$expected_package'."
+
+if [[ "$mode" != baseline ]]; then
+    permissions="$("$build_tools/aapt" dump permissions "$apk")"
+    unexpected_permissions="$(awk -F "'" -v internal="$expected_package.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" \
+        '/^uses-permission/ && $2 != internal { print }' <<< "$permissions")"
+    [[ -z "$unexpected_permissions" ]] ||
+        pol_error "The offline APK requests unexpected permissions: $unexpected_permissions"
+
+    manifest="$("$build_tools/aapt" dump xmltree "$apk" AndroidManifest.xml)"
+    launcher="$(sed -n "s/^launchable-activity: name='\([^']*\)'.*/\1/p" <<< "$badging")"
+    [[ "$launcher" == io.flutter.embedding.android.FlutterActivity ]] ||
+        pol_error "The offline APK has an unexpected launcher activity."
+    if grep -Eq 'android\.net\.VpnService|\.CoreService|\.MainActivity|\.QuickTile|\.ConnectWidget' <<< "$manifest"; then
+        pol_error "An upstream Android entry point is registered in the offline APK."
+    fi
+    grep -Eq 'android:allowBackup.*=\(type 0x12\)0x0$' <<< "$manifest" ||
+        pol_error "The offline APK must disable application backup."
+fi
+
 out="${POL_ANDROID_ARTIFACT_DIR:-$POL_REPO_ROOT/out}"
 mkdir -p "$out"
 artifact_tmp="$(mktemp -d "$out/.android-artifacts.XXXXXX")"
