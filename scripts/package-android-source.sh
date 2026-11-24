@@ -25,10 +25,14 @@ unzip -p "$apk" assets/flutter_assets/NOTICES.Z | gzip -dc > "$notices/Flutter-N
 # The binding generator contributes its Java and Go runtime to the AAR.
 cp "$(go env GOROOT)/LICENSE" "$notices/go/LICENSE"
 modules="$package_tmp/go-modules"
+go_list_options=()
+if [[ ${POL_TUNNEL_TEST:-0} == 1 ]]; then
+    go_list_options+=(-tags poltunneltest)
+fi
 (
     cd -- "$POL_REPO_ROOT/core"
     for arch in arm64 arm amd64; do
-        GOOS=android GOARCH="$arch" CGO_ENABLED=1 go list -deps \
+        GOOS=android GOARCH="$arch" CGO_ENABLED=1 go list -deps "${go_list_options[@]}" \
             -f '{{with .Module}}{{if not .Main}}{{.Path}}{{"\t"}}{{.Version}}{{"\t"}}{{.Dir}}{{end}}{{end}}' ./mobile
     done
     go list -m -f '{{.Path}}{{"\t"}}{{.Version}}{{"\t"}}{{.Dir}}' golang.org/x/mobile

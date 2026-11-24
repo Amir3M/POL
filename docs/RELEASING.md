@@ -34,6 +34,19 @@ The tag workflow builds with official pinned dependencies, runs tests, verifies 
 
 The established debug certificate SHA-256 is `a2ec7957ee651c464aaf978810e5613791ec1b342b23a714fbbc65a3e31bb95d`. Its protected PKCS12 copy uses the `debug` alias. Installations signed with this certificate can update in place. Android requires uninstalling previews signed by a different certificate before installing this one, which removes that app's local data. The preview workflow checks the certificate before building. Review the workflow pin and document the update impact before any signing-key rotation.
 
+## Publish a controlled tunnel test
+
+Build locally with `scripts/build-android.sh tunnel-test`. To package source and notices for that APK, set `POL_TUNNEL_TEST=1` when running `scripts/package-android-source.sh out/pol-vpn-debug.apk`. This selects the test-only Android manifest, Flutter entry path and Go build tag together. A normal debug build continues to use the offline preview.
+
+After checks pass for the approved commit, increment the version and build number if needed and push a fresh tag matching the version in `app/pubspec.yaml`.
+
+```sh
+git tag pol-vX.Y.Z-tunnel-test APPROVED_COMMIT
+git push origin refs/tags/pol-vX.Y.Z-tunnel-test
+```
+
+The tag workflow verifies the build and signer, packages the four release assets and publishes a separate **Tunnel Test** prerelease. The test uses `com.polvpn.app.debug` and the established debug certificate so it can update the offline preview in place. Use the [controlled tunnel checklist](DEVICE_TEST_CHECKLIST.md#controlled-tunnel-test) for device verification.
+
 ## Prepare a release candidate
 
 Set `version: X.Y.Z+BUILD` in `app/pubspec.yaml`, with a build number higher than the previous published APK, and add a corresponding `## [X.Y.Z]` section to `CHANGELOG.md`. Manually dispatch the **Android** workflow, choose **release**, and enter `X.Y.Z`. Download the tested, signed artifact and verify it with `sha256sum --check pol-vpn-release.apk.sha256`.

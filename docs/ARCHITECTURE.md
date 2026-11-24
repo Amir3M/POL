@@ -6,6 +6,12 @@ POL uses the Arman VPN Android stack. The imported source is `v1.0.19` at `492dd
 
 The Android launcher opens `AndroidPreviewApp` in `com.polvpn.app.PreviewActivity`. Its native channel reads Android version, API level and architecture and exports the preview report through Android's local document picker. The merged manifest omits internet access, Android VPN services, the quick tile and widget, and disables app backup. The preview keeps the Go daemon dormant and displays VPN, authentication and quota as unavailable. The Android build checks the manifest in the packaged APK. The upstream Kotlin namespace and JNI names remain aligned for a later authorized integration.
 
+## Controlled Android tunnel test
+
+The separate debug build opens `runAndroid()` through `MainActivity`. Connect uses Android's VPN consent, `CoreService`, the inherited TUN adapter and the Go daemon. The VPN route covers only `192.0.2.1/32` and excludes POL's own package. The authenticated TUN listener accepts only TCP to port 8080 at that address. A locally pinned TLS CONNECT server forwards the stream to an app-private test origin. The provider transport handles synthetic refresh, proxy authorization and quota in-process, and rejects any other provider request. [Tunnel build](../scripts/build-android.sh) · [Go fixture](../core/mobile/tunnel_fixture.go)
+
+A synthetic session is encrypted with an AndroidKeyStore AES-GCM key in the app's no-backup directory. Go uses disposable test credentials for each run. The report includes the TUN, authorization, connection and transfer stages, quota from the fixture, and aggregate counters. The checkout's default Android build keeps its offline entry point. [Device test checklist](DEVICE_TEST_CHECKLIST.md#controlled-tunnel-test)
+
 ## Retained upstream components
 
 | Component | Role |

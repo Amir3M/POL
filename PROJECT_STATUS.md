@@ -2,7 +2,7 @@
 
 Updated November 24, 2026.
 
-**Current phase:** M2 offline Android preview. M3 live functionality depends on provider approval.
+**Current phase:** M3 controlled Android tunnel testing. The M2 offline preview is published. Live functionality depends on provider approval.
 
 **Completed:** Imported Arman VPN v1.0.19 with Git history and built the untouched baseline on GitHub Actions. Added pinned Linux, Codespaces and GitHub Actions builds. Added POL's package IDs, logo, splash, offline status, About and diagnostics. Corrected the retained account UI to show reported quota per account and distinguish unknown usage.
 
@@ -14,4 +14,6 @@ Updated November 24, 2026.
 
 **Preview publication:** The `pol-v0.1.1-preview` tag points to `33dfaaca196cf9149fdd93a7de1b35e98a30c3f9`. GitHub Actions attempt 2 built and published the prerelease using official dependencies and the established debug certificate. The public APK downloaded successfully and matched the signed build and published checksum. The release also includes matching source and notices. [APK download](https://github.com/Amir3M/POL/releases/download/pol-v0.1.1-preview/pol-vpn-debug.apk) · [Prerelease](https://github.com/Amir3M/POL/releases/tag/pol-v0.1.1-preview) · [Tag run](https://github.com/Amir3M/POL/actions/runs/45395945368)
 
-**Next:** Smoke-test installation or upgrade and diagnostic export on a physical Android device using the published offline preview. For live connectivity, obtain the POL-specific provider authorization and reuse the verified Android connection path in a separate test artifact. See the [connection report](docs/ANDROID_CONNECTION_PATH.md), [tasks](TASKS.md) and [test report](docs/TEST_REPORT.md).
+**Tunnel test:** The Android debug build reuses `runAndroid()`, the VPN permission flow, the Android TUN adapter and Go proxy. The fixture authorizes synthetic sessions, returns quota, and permits transfers to the on-device test origin through the single test route. Go tests verified the protected listener and data transfer. Use the separately signed prerelease for physical device testing after the hosted build passes. [Device test checklist](docs/DEVICE_TEST_CHECKLIST.md#controlled-tunnel-test)
+
+**Next:** Run the controlled checklist on a physical phone while Arman is closed. For live connectivity, obtain POL-specific provider authorization and test separately. [Connection report](docs/ANDROID_CONNECTION_PATH.md) · [Tasks](TASKS.md) · [Test report](docs/TEST_REPORT.md)

@@ -4,6 +4,8 @@ POL means “bridge” in Persian. POL VPN is an independent, open-source Androi
 
 The first POL Android preview has an independent package ID, launcher and splash. It opens offline. Live sign-in and VPN connections require a POL-specific authorization from Mozilla. See the current build and device verification status before installing an APK.
 
+The Android tunnel test exercises the retained VPN path against an on-device fixture using a synthetic session. The device checklist covers the transfer from another app. [Tunnel-test checklist](docs/DEVICE_TEST_CHECKLIST.md#controlled-tunnel-test)
+
 - [Project status](PROJECT_STATUS.md)
 - [Android build](docs/ANDROID_BUILD.md)
 - [Upstream audit](docs/UPSTREAM_AUDIT.md)

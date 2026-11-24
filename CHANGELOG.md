@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.2]
+
+- Added a separate Android tunnel-test build with a controlled loopback service, a synthetic Keystore-backed session and per-stage diagnostics.
+- Added signed GitHub prereleases for the controlled test using the existing debug application identity.
+
 ## Unreleased
 
 - Imported Arman VPN v1.0.19 with full Git ancestry and the original POL repository history.

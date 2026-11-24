@@ -3,7 +3,7 @@ name: Android
 on:
   push:
     branches: [main]
-    tags: ['pol-v*-preview']
+    tags: ['pol-v*-preview', 'pol-v*-tunnel-test']
   pull_request:
   workflow_dispatch:
     inputs:
@@ -15,6 +15,7 @@ on:
           - debug
           - baseline
           - release
+          - tunnel-test
       release_version:
         description: Version name from app/pubspec.yaml, required for release builds
         type: string
@@ -33,10 +34,11 @@ jobs:
     timeout-minutes: 45
     outputs:
       preview_artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      tag_suffix: ${{ steps.version.outputs.tag_suffix }}
       version_name: ${{ steps.version.outputs.name }}
     env:
-      POL_BUILD_MODE: ${{ inputs.build_type || 'debug' }}
-      POL_PREVIEW_BUILD: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+      POL_BUILD_MODE: ${{ (github.event_name == 'push' && github.ref_type == 'tag' && endsWith(github.ref_name, '-tunnel-test')) && 'tunnel-test' || inputs.build_type || 'debug' }}
+      POL_PRERELEASE_BUILD: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
       POL_PREVIEW_SIGNER_SHA256: a2ec7957ee651c464aaf978810e5613791ec1b342b23a714fbbc65a3e31bb95d
     steps:
       - uses: actions/checkout@v7
@@ -70,12 +72,17 @@ jobs:
             printf '::error::Release version must match app/pubspec.yaml (%s)\n' "$version"
             exit 1
           fi
-          if [[ "$POL_PREVIEW_BUILD" == true ]]; then
-            if [[ "$OWNER_CREATED_TAG" != true || "$GITHUB_REF_NAME" != "pol-v$version-preview" ]]; then
-              printf '::error::The repository owner must create a new pol-v%s-preview tag\n' "$version"
+          if [[ "$POL_PRERELEASE_BUILD" == true ]]; then
+            tag_suffix=preview
+            if [[ "$POL_BUILD_MODE" == tunnel-test ]]; then
+              tag_suffix=tunnel-test
+            fi
+            if [[ "$OWNER_CREATED_TAG" != true || "$GITHUB_REF_NAME" != "pol-v$version-$tag_suffix" ]]; then
+              printf '::error::The repository owner must create a new pol-v%s-%s tag\n' "$version" "$tag_suffix"
               exit 1
             fi
             test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+            printf 'tag_suffix=%s\n' "$tag_suffix" >> "$GITHUB_OUTPUT"
           fi
           printf 'name=%s\ncode=%s\n' "$version" "$version_code" >> "$GITHUB_OUTPUT"
 
@@ -112,6 +119,13 @@ jobs:
       - name: Run tests
         run: scripts/test-android.sh
 
+      - name: Run controlled Go tunnel tests
+        if: github.event_name == 'pull_request' || env.POL_BUILD_MODE == 'tunnel-test'
+        run: |
+          source scripts/android-env.sh
+          cd "$POL_REPO_ROOT/core"
+          go test -tags poltunneltest ./mobile ./internal/service ./internal/proxy
+
       - name: Build and verify upstream baseline
         if: env.POL_BUILD_MODE == 'baseline'
         env:
@@ -143,19 +157,21 @@ jobs:
           RELEASE_PASSWORD: ${{ inputs.build_type == 'release' && secrets.POL_ANDROID_RELEASE_KEYSTORE_PASSWORD || '' }}
           VERSION_NAME: ${{ steps.version.outputs.name }}
           VERSION_CODE: ${{ steps.version.outputs.code }}
-          REQUIRE_SIGNING: ${{ github.event_name == 'workflow_dispatch' || env.POL_PREVIEW_BUILD == 'true' }}
+          REQUIRE_SIGNING: ${{ github.event_name == 'workflow_dispatch' || env.POL_PRERELEASE_BUILD == 'true' }}
         shell: bash
         run: |
           source scripts/android-env.sh
           umask 077
           if [[ "$POL_BUILD_MODE" == release ]]; then
             apk_id=com.polvpn.app
+            apk=pol-vpn-release.apk
             key_alias=release
             properties=app/android/key.properties
             key_data="$RELEASE_KEYSTORE"
             export APK_KEYSTORE_PASSWORD="$RELEASE_PASSWORD"
           else
             apk_id=com.polvpn.app.debug
+            apk=pol-vpn-debug.apk
             key_alias=debug
             properties=app/android/pol-debug.properties
             key_data="$DEBUG_KEYSTORE"
@@ -197,13 +213,13 @@ jobs:
             keytool -exportcert -keystore "$key_file" -storepass:env APK_KEYSTORE_PASSWORD \
               -alias "$key_alias" -file "$cert_file"
             expected_signer="$(sha256sum "$cert_file" | cut -d ' ' -f 1)"
-            if [[ "$POL_PREVIEW_BUILD" == true && "$expected_signer" != "$POL_PREVIEW_SIGNER_SHA256" ]]; then
-              echo '::error::The preview key must match the established POL debug signing certificate'
+            if [[ ( "$POL_PRERELEASE_BUILD" == true || "$POL_BUILD_MODE" == tunnel-test ) && "$expected_signer" != "$POL_PREVIEW_SIGNER_SHA256" ]]; then
+              echo '::error::The prerelease key must match the established POL debug signing certificate'
               exit 1
             fi
           elif [[ "$REQUIRE_SIGNING" == true || -n "$key_data" || -n "$APK_KEYSTORE_PASSWORD" ]]; then
             printf '::error::Configure both POL_ANDROID_%s_KEYSTORE_BASE64 and POL_ANDROID_%s_KEYSTORE_PASSWORD\n' \
-              "${POL_BUILD_MODE^^}" "${POL_BUILD_MODE^^}"
+              "${key_alias^^}" "${key_alias^^}"
             exit 1
           else
             echo "::notice::Building a CI check APK with a temporary debug signing key"
@@ -212,7 +228,6 @@ jobs:
 
           scripts/build-android.sh "$POL_BUILD_MODE"
 
-          apk="pol-vpn-$POL_BUILD_MODE.apk"
           (
             cd out
             sha256sum --check "$apk.sha256"
@@ -237,17 +252,38 @@ jobs:
             echo "::error::APK signer does not match the configured certificate"
             exit 1
           fi
+          printf 'apk=%s\n' "$apk" >> "$GITHUB_OUTPUT"
           if [[ -n "$expected_signer" ]]; then
             echo 'upload=true' >> "$GITHUB_OUTPUT"
             printf 'APK certificate SHA-256: `%s`\n' "$signer" >> "$GITHUB_STEP_SUMMARY"
           fi
-          if [[ "$POL_PREVIEW_BUILD" == true ]]; then
+          if [[ "$POL_PRERELEASE_BUILD" == true ]]; then
             printf 'APK: %s bytes, SHA-256 `%s`.\n' \
               "$(stat -c '%s' "out/$apk")" "$(cut -d ' ' -f 1 "out/$apk.sha256")" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Enable Android emulator acceleration
+        if: env.POL_BUILD_MODE == 'tunnel-test'
+        run: |
+          printf '%s\n' 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-pol-kvm.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo udevadm settle
+          test -r /dev/kvm && test -w /dev/kvm
+
+      - name: Smoke-test the signed APK on Android
+        if: env.POL_BUILD_MODE == 'tunnel-test'
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          target: default
+          arch: x86_64
+          disable-animations: true
+          script: bash scripts/smoke-android-tunnel.sh out/pol-vpn-debug.apk
+
       - name: Prepare offline preview release notes
-        if: env.POL_PREVIEW_BUILD == 'true'
+        if: steps.version.outputs.tag_suffix == 'preview'
         env:
           VERSION_NAME: ${{ steps.version.outputs.name }}
           VERSION_CODE: ${{ steps.version.outputs.code }}
@@ -281,11 +317,38 @@ jobs:
             exit 1
           fi
 
+      - name: Prepare tunnel test release notes
+        if: steps.version.outputs.tag_suffix == 'tunnel-test'
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          repo_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          printf '[Download pol-vpn-debug.apk](%s/releases/download/%s/pol-vpn-debug.apk)\n\n' \
+            "$repo_url" "$GITHUB_REF_NAME" > out/release-notes.md
+          cat >> out/release-notes.md <<'NOTES'
+          This Android test uses a synthetic session and routes one local fixture endpoint through the tunnel. It exercises Android VPN permission, traffic, session persistence, renewal and logout.
+
+          1. Install the APK. Before starting the tunnel, open `http://192.0.2.1:8080/` in an external browser and confirm it is unavailable.
+          2. Open POL VPN, create a test session and start the tunnel. Accept the Android VPN permission prompt.
+          3. Reload the fixture page. Run its upload and download checks and confirm the traffic stage passes in POL VPN.
+          4. Stop the tunnel and confirm the fixture becomes unavailable again. Relaunch POL VPN, check that the synthetic session persisted, then test renewal and logout.
+
+          Mozilla sign-in and Guardian testing remain pending approval for POL.
+
+          The signed APK uses `com.polvpn.app.debug`. Use `pol-vpn-debug.apk.sha256` to verify your download. The release includes the corresponding source archive and dependency notices.
+          NOTES
+          printf '\n[Device test checklist](%s/blob/%s/docs/DEVICE_TEST_CHECKLIST.md)\n\nVersion %s, Android build %s.\n\nSource commit `%s`.\n' \
+            "$repo_url" "$GITHUB_SHA" "$VERSION_NAME" "$VERSION_CODE" "$GITHUB_SHA" >> out/release-notes.md
+
       - name: Package corresponding source and license
         if: steps.build.outputs.upload == 'true' || github.event_name == 'pull_request'
+        env:
+          APK: ${{ steps.build.outputs.apk }}
+          POL_TUNNEL_TEST: ${{ env.POL_BUILD_MODE == 'tunnel-test' && '1' || '' }}
         run: |
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          scripts/package-android-source.sh "out/pol-vpn-$POL_BUILD_MODE.apk"
+          scripts/package-android-source.sh "out/$APK"
           cp LICENSE docs/LICENSE_COMPLIANCE.md out/
           printf '%s\n' "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/tree/$GITHUB_SHA" > out/SOURCE.txt
 
@@ -294,10 +357,10 @@ jobs:
         id: upload
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.POL_PREVIEW_BUILD == 'true' && github.ref_name || format('pol-vpn-{0}-{1}-{2}', env.POL_BUILD_MODE, steps.version.outputs.name, steps.version.outputs.code) }}
+          name: ${{ env.POL_PRERELEASE_BUILD == 'true' && github.ref_name || format('pol-vpn-{0}-{1}-{2}', env.POL_BUILD_MODE, steps.version.outputs.name, steps.version.outputs.code) }}
           path: |
-            out/pol-vpn-${{ env.POL_BUILD_MODE }}.apk
-            out/pol-vpn-${{ env.POL_BUILD_MODE }}.apk.sha256
+            out/${{ steps.build.outputs.apk }}
+            out/${{ steps.build.outputs.apk }}.sha256
             out/pol-vpn-source.tar.gz
             out/pol-vpn-notices.tar.gz
             out/SOURCE.txt
@@ -324,11 +387,17 @@ jobs:
       - name: Verify and publish GitHub prerelease
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG_SUFFIX: ${{ needs.android.outputs.tag_suffix }}
           VERSION_NAME: ${{ needs.android.outputs.version_name }}
         shell: bash
         run: |
           tag="$GITHUB_REF_NAME"
-          test "$tag" = "pol-v$VERSION_NAME-preview"
+          case "$TAG_SUFFIX" in
+            preview) title="POL VPN $VERSION_NAME Android preview" ;;
+            tunnel-test) title="POL VPN $VERSION_NAME — Tunnel Test" ;;
+            *) exit 1 ;;
+          esac
+          test "$tag" = "pol-v$VERSION_NAME-$TAG_SUFFIX"
           test "$(cat out/SOURCE.txt)" = "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/tree/$GITHUB_SHA"
           (cd out && sha256sum --check pol-vpn-debug.apk.sha256)
 
@@ -341,7 +410,7 @@ jobs:
               read -r kind commit <<< "$ref"
             done
             if [[ "$kind" != commit || "$commit" != "$GITHUB_SHA" ]]; then
-              echo '::error::The remote preview tag changed after the workflow started'
+              echo '::error::The remote prerelease tag changed after the workflow started'
               exit 1
             fi
           }
@@ -354,7 +423,6 @@ jobs:
           done
 
           release=(--repo "$GITHUB_REPOSITORY")
-          title="POL VPN $VERSION_NAME Android preview"
           metadata="$(mktemp)"
           if ! gh release view "$tag" "${release[@]}" \
               --json isDraft,isPrerelease,tagName,name,body,assets > "$metadata"; then
@@ -398,4 +466,4 @@ jobs:
           release_url="$(gh release view "$tag" "${release[@]}" --json isDraft,isPrerelease,url \
             --jq 'select(.isPrerelease and (.isDraft | not)).url')"
           test -n "$release_url"
-          printf 'Published and verified [the Android preview prerelease](%s).\n' "$release_url" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Published and verified [the Android prerelease](%s).\n' "$release_url" >> "$GITHUB_STEP_SUMMARY"

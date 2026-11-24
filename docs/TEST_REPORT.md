@@ -26,3 +26,13 @@ Updated November 24, 2026. The upstream worktree is pinned to Arman VPN v1.0.19 
 | GitHub preview publication | Attempt 1 stopped on missing signing secrets. After secure provisioning, attempt 2 passed tests, uploaded artifact `14928051161` and published the offline prerelease. Public APK and checksum downloads returned HTTP 200. The APK is 107,039,256 bytes with SHA-256 `59849105bd357c4a98e868b3473dd6570613eab5cd3596e6f00db8b372ec2834`. Android signature scheme v2 passed with the established debug certificate. The source archive matched the tagged source, and the notice archive covered 46 resolved Android runtime Maven components. [Tag run](https://github.com/Amir3M/POL/actions/runs/45395945368) · [Prerelease](https://github.com/Amir3M/POL/releases/tag/pol-v0.1.1-preview) |
 
 The Flutter cache layer SHA-256 was `e9d087e4cd17f187261fbc60ff03a47a2805bc2c3b8e7beb2f6f601e9f87f323`. The digest verifies the OCI layer. The reconstructed JAR envelopes differ from Google's published Maven archives. Flutter warned that its next versions will raise the minimum supported Gradle, AGP and Kotlin versions. This build used upstream's pinned versions. See the [device test checklist](DEVICE_TEST_CHECKLIST.md) for installation and connectivity verification.
+
+## Controlled tunnel test 0.1.2
+
+| Check | Result |
+| --- | --- |
+| Default and tagged Go tests | Passed. The fixture test uses the authenticated TUN SOCKS listener, pinned TLS CONNECT relay and private origin. It validates a 256 KiB transfer in each direction, quota accounting, refresh over an existing stream, rejection of additional destinations and cleanup. Go race and vet checks passed for the fixture. |
+| Dart analysis and targeted tests | Passed analysis and 16 tests covering startup, offline preview, consent-denial presentation, fixture session, quota and sanitized diagnostic copy/export. |
+| Local APK inspection | APK signature scheme v2, the established signer, 16 KiB ZIP alignment, package ID `com.polvpn.app.debug`, version `0.1.2+3`, Android minimum API 24 and all three ABIs passed inspection. |
+| Physical phone | Pending. Test transfers in another app with Arman closed and verify a synthetic session across a higher signed build. [Checklist](DEVICE_TEST_CHECKLIST.md#controlled-tunnel-test) |
+| Mozilla and Guardian | Pending POL-specific provider authorization. |
