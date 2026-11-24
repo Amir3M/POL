@@ -1,0 +1,13 @@
+{
+  "name": "POL VPN Android",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": "bash scripts/setup-android.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": ["Dart-Code.flutter", "golang.Go"]
+    }
+  }
+}
