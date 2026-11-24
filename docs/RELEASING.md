@@ -19,7 +19,7 @@ For local builds, use `app/android/pol-debug.properties` for the shared debug ke
 
 Open **Actions → Android → Run workflow**, choose **debug**, and run the workflow on the intended branch. Open the finished run and extract the APK and checksum from **Artifacts**. In the extracted folder, run `sha256sum --check pol-vpn-debug.apk.sha256` before installation. The artifact also includes an archive of the exact corresponding source, a source URL and license materials. Keep those files available when distributing the APK.
 
-The debug application ID is `com.polvpn.app.debug`. Keep the signing key and application ID consistent across updates. Increment the build number in `app/pubspec.yaml` for a new distributed version.
+The debug application ID is `com.polvpn.app.debug`. Keep the signing key and application ID consistent across updates. Increment the build number in `app/pubspec.yaml` for a new distributed version. The build includes its Git revision in the offline diagnostics report. The source archive and dependency notices ship alongside uploaded APKs.
 
 ## Prepare a release candidate
 

@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../app_info.dart';
+import 'android_diagnostics.dart';
 
 class AndroidPreviewApp extends StatelessWidget {
   const AndroidPreviewApp({super.key});
@@ -63,9 +64,23 @@ class _PreviewScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  TextButton(
-                    onPressed: () => _showAbout(context),
-                    child: const Text('About POL VPN'),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AndroidDiagnosticsPage(),
+                          ),
+                        ),
+                        child: const Text('Diagnostics'),
+                      ),
+                      TextButton(
+                        onPressed: () => _showAbout(context),
+                        child: const Text('About POL VPN'),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -104,6 +119,14 @@ class _PreviewScreen extends StatelessWidget {
           ),
         ),
         actions: [
+          TextButton(
+            onPressed: () => showLicensePage(
+              context: context,
+              applicationName: 'POL VPN',
+              applicationVersion: appVersion,
+            ),
+            child: const Text('Open-source licenses'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Close'),

@@ -239,7 +239,7 @@ jobs:
         if: steps.build.outputs.upload == 'true'
         run: |
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          git archive --format=tar.gz --prefix=pol-vpn-source/ --output=out/pol-vpn-source.tar.gz "$GITHUB_SHA"
+          scripts/package-android-source.sh "out/pol-vpn-$POL_BUILD_MODE.apk"
           cp LICENSE docs/LICENSE_COMPLIANCE.md out/
           printf '%s\n' "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/tree/$GITHUB_SHA" > out/SOURCE.txt
 
@@ -252,6 +252,7 @@ jobs:
             out/pol-vpn-${{ env.POL_BUILD_MODE }}.apk
             out/pol-vpn-${{ env.POL_BUILD_MODE }}.apk.sha256
             out/pol-vpn-source.tar.gz
+            out/pol-vpn-notices.tar.gz
             out/SOURCE.txt
             out/LICENSE
             out/LICENSE_COMPLIANCE.md

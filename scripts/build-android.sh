@@ -41,6 +41,14 @@ pol_check_mobile_tools || pol_error "Run scripts/setup-android.sh to install pin
 version="$(sed -n 's/^version:[[:space:]]*\([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p' "$POL_REPO_ROOT/app/pubspec.yaml")"
 module="$(awk '$1 == "module" { print $2; exit }' "$POL_REPO_ROOT/core/go.mod")"
 [[ -n "$version" && -n "$module" ]] || pol_error "Could not read app version or Go module."
+dart_defines=("--dart-define=APP_VERSION=$version")
+if [[ "$mode" != baseline ]]; then
+    build_id="$(git -C "$POL_REPO_ROOT" rev-parse --short=12 HEAD 2>/dev/null || printf 'local')"
+    if [[ "$build_id" != local ]] && ! git -C "$POL_REPO_ROOT" diff --quiet HEAD -- app core scripts; then
+        build_id+="-dirty"
+    fi
+    dart_defines+=("--dart-define=POL_BUILD_ID=$build_id")
+fi
 
 mkdir -p "$POL_REPO_ROOT/app/android/app/libs"
 (
@@ -52,7 +60,7 @@ mkdir -p "$POL_REPO_ROOT/app/android/app/libs"
 (
     cd -- "$POL_REPO_ROOT/app"
     pol_pub_get
-    flutter build apk "--$build_mode" --no-pub --dart-define="APP_VERSION=$version"
+    flutter build apk "--$build_mode" --no-pub "${dart_defines[@]}"
 )
 
 apk="$POL_REPO_ROOT/app/build/app/outputs/flutter-apk/app-$build_mode.apk"
@@ -72,7 +80,7 @@ if [[ "$mode" != baseline ]]; then
 
     manifest="$("$build_tools/aapt" dump xmltree "$apk" AndroidManifest.xml)"
     launcher="$(sed -n "s/^launchable-activity: name='\([^']*\)'.*/\1/p" <<< "$badging")"
-    [[ "$launcher" == io.flutter.embedding.android.FlutterActivity ]] ||
+    [[ "$launcher" == com.polvpn.app.PreviewActivity ]] ||
         pol_error "The offline APK has an unexpected launcher activity."
     if grep -Eq 'android\.net\.VpnService|\.CoreService|\.MainActivity|\.QuickTile|\.ConnectWidget' <<< "$manifest"; then
         pol_error "An upstream Android entry point is registered in the offline APK."

@@ -4,7 +4,7 @@ Record the APK SHA-256 and signer fingerprint, package ID, app version, Android 
 
 ## Install, account and updates
 
-- Install the debug APK and confirm the display name, icon, package ID and version. Open it with the device offline and verify the initial state and settings are usable.
+- Install the debug APK and confirm the display name, icon, package ID and version. Open it in airplane mode and verify the offline status, About and Diagnostics screens. The preview uses Android 7.0 or later.
 - Sign in interactively with an authorized test account. Check cancellation, account switching or removal, token refresh, expired or revoked sessions, sign-out, and manual reset.
 - Close and reopen, reboot, and update to a higher version signed with the same key. Verify that the session persists where expected, reset remains effective, and debug and production data are isolated.
 - Refresh quota and capture the status only. Exercise limited, unlimited, unavailable, failed-refresh and exhausted responses with approved fixtures or a provider test account.
@@ -19,4 +19,6 @@ Record the APK SHA-256 and signer fingerprint, package ID, app version, Android 
 
 ## Diagnostics
 
-- Copy and export a report through the system file picker and clear the log. Check status, version and build ID against the test record. Inspect the export for passwords, tokens, session secrets, browsing or DNS history, precise network addresses and personal information.
+- Copy a report, then export it through the system file picker. Confirm the contents match and include the version, build ID, Android version, SDK and architecture. Cancel a second export and confirm the app resumes normally.
+- Check the preview's VPN, authentication and quota states are unavailable. Inspect the report for passwords, tokens, session secrets, browsing or DNS history, precise network addresses and personal information.
+- Once live diagnostics are enabled, test connection and reconnection entries, error sanitization and log clearing.

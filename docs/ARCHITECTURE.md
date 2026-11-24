@@ -4,7 +4,7 @@ POL uses the Arman VPN Android stack. The imported source is `v1.0.19` at `492dd
 
 ## Android preview
 
-The Android launcher opens `AndroidPreviewApp` in a Flutter activity. The merged manifest omits internet access, Android VPN services, the quick tile and widget, and disables app backup. The app does not start the Go daemon, sign in, poll for upstream updates or display invented locations or quota. The Android build checks these restrictions in the packaged APK. The Kotlin namespace and JNI names remain aligned for a later authorized integration.
+The Android launcher opens `AndroidPreviewApp` in `com.polvpn.app.PreviewActivity`. Its native channel reads Android version, API level and architecture and exports the preview report through Android's local document picker. The merged manifest omits internet access, Android VPN services, the quick tile and widget, and disables app backup. The preview keeps the Go daemon dormant and displays VPN, authentication and quota as unavailable. The Android build checks the manifest in the packaged APK. The upstream Kotlin namespace and JNI names remain aligned for a later authorized integration.
 
 ## Retained upstream components
 
