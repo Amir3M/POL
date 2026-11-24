@@ -5,9 +5,11 @@
 - [x] Preserve the original repository and import Arman v1.0.19 with Git history and an upstream remote.
 - [x] Audit the source, provider authorization, account and quota behavior, network design and licensing.
 - [x] Provision Go, gomobile, JDK and the Android SDK/NDK in Linux.
-- [ ] Verify Codespaces bootstrap and the exact Flutter toolchain.
+- [x] Add the pinned Codespaces bootstrap and verify the Flutter version used for source checks.
+- [ ] Verify a clean Codespaces startup and toolchain downloads.
 - [x] Run upstream Go vet, Go unit tests, gVisor TUN checks and the native TUN adapter build.
-- [ ] Run upstream Flutter analysis and tests, build the untouched Android APK and record package, signer and checksum.
+- [x] Run upstream Flutter analysis and tests.
+- [ ] Build the untouched Android APK and record package, signer and checksum.
 
 ## M2 · First POL Android build
 
@@ -29,6 +31,7 @@
 
 ## M5 · Release candidate
 
-- [ ] Verify the GitHub Android workflow, APK package IDs, stable debug signing and artifact checksums.
+- [x] Configure and statically validate the GitHub Android workflow.
+- [ ] Verify a hosted workflow, APK package IDs, stable debug signing and artifact checksums.
 - [ ] Complete regression and physical testing, transitive license inventory and corresponding source distribution.
 - [ ] Configure production signing and publish an owner-approved pre-release after the release checks pass.

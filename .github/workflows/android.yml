@@ -1,0 +1,259 @@
+name: Android
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: APK build type
+        required: true
+        type: choice
+        options:
+          - baseline
+          - debug
+          - release
+      release_version:
+        description: Version name from app/pubspec.yaml, required for release builds
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.ref }}-${{ inputs.build_type || github.event_name }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      POL_BUILD_MODE: ${{ inputs.build_type || 'baseline' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Check out upstream baseline
+        if: env.POL_BUILD_MODE == 'baseline'
+        run: |
+          commit=492dd7f389c539790cde3d07167535d28788a0d0
+          target="$RUNNER_TEMP/arman-baseline"
+          git fetch --no-tags --depth=1 https://github.com/armanlife/arman-vpn-client.git "$commit"
+          git worktree add --detach "$target" "$commit"
+          test "$(git -C "$target" rev-parse HEAD)" = "$commit"
+          printf 'POL_REPO_ROOT=%s\nPOL_ANDROID_ARTIFACT_DIR=%s\n' \
+            "$target" "$RUNNER_TEMP/arman-baseline-out" >> "$GITHUB_ENV"
+
+      - name: Check version
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.release_version }}
+        run: |
+          version_info="$(sed -nE 's/^version: ([0-9]+\.[0-9]+\.[0-9]+)\+([1-9][0-9]*)$/\1 \2/p' "${POL_REPO_ROOT:-.}/app/pubspec.yaml")"
+          read -r version version_code <<< "$version_info"
+          if [[ -z "$version" || -z "$version_code" ]]; then
+            echo "::error::app/pubspec.yaml must specify X.Y.Z+BUILD"
+            exit 1
+          fi
+          if [[ "$POL_BUILD_MODE" == release && "$REQUESTED_VERSION" != "$version" ]]; then
+            printf '::error::Release version must match app/pubspec.yaml (%s)\n' "$version"
+            exit 1
+          fi
+          printf 'name=%s\ncode=%s\n' "$version" "$version_code" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.0'
+          channel: stable
+          cache: true
+          pub-cache: true
+          pub-cache-key: 'pol-pub-:os:-:arch:-:version:-:hash:'
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/pol-vpn
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: android-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/*android*.sh', 'app/android/**/*.gradle.kts', 'app/android/gradle/wrapper/gradle-wrapper.properties', 'app/pubspec.lock') }}
+          restore-keys: android-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Prepare Android tools
+        run: scripts/setup-android.sh
+
+      - name: Run tests
+        run: scripts/test-android.sh
+
+      - name: Build and verify upstream baseline
+        if: env.POL_BUILD_MODE == 'baseline'
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          source scripts/android-env.sh
+          scripts/build-android.sh baseline
+
+          apk=arman-vpn-baseline.apk
+          cd "$POL_ANDROID_ARTIFACT_DIR"
+          sha256sum --check "$apk.sha256"
+          badging="$("$ANDROID_HOME/build-tools/$POL_BUILD_TOOLS_VERSION/aapt" dump badging "$apk")"
+          package_line="$(sed -n '/^package: /p' <<< "$badging")"
+          if [[ "$package_line" != "package: name='com.arman.firefoxvpn' versionCode='$VERSION_CODE' versionName='$VERSION_NAME'"* ]]; then
+            printf '::error::Unexpected upstream manifest metadata: %s\n' "$package_line"
+            exit 1
+          fi
+          printf 'Upstream commit: `%s`\n\nAPK SHA-256: `%s`\n' \
+            "$(git -C "$POL_REPO_ROOT" rev-parse HEAD)" "$(cut -d ' ' -f 1 "$apk.sha256")" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build and verify APK
+        if: env.POL_BUILD_MODE != 'baseline'
+        id: build
+        env:
+          DEBUG_KEYSTORE: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && inputs.build_type != 'release' && secrets.POL_ANDROID_DEBUG_KEYSTORE_BASE64 || '' }}
+          DEBUG_PASSWORD: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && inputs.build_type != 'release' && secrets.POL_ANDROID_DEBUG_KEYSTORE_PASSWORD || '' }}
+          RELEASE_KEYSTORE: ${{ inputs.build_type == 'release' && secrets.POL_ANDROID_RELEASE_KEYSTORE_BASE64 || '' }}
+          RELEASE_PASSWORD: ${{ inputs.build_type == 'release' && secrets.POL_ANDROID_RELEASE_KEYSTORE_PASSWORD || '' }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          MANUAL_BUILD: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        run: |
+          source scripts/android-env.sh
+          umask 077
+          if [[ "$POL_BUILD_MODE" == release ]]; then
+            apk_id=com.polvpn.app
+            key_alias=release
+            properties=app/android/key.properties
+            key_data="$RELEASE_KEYSTORE"
+            export APK_KEYSTORE_PASSWORD="$RELEASE_PASSWORD"
+          else
+            apk_id=com.polvpn.app.debug
+            key_alias=debug
+            properties=app/android/pol-debug.properties
+            key_data="$DEBUG_KEYSTORE"
+            export APK_KEYSTORE_PASSWORD="$DEBUG_PASSWORD"
+          fi
+          unset DEBUG_KEYSTORE DEBUG_PASSWORD RELEASE_KEYSTORE RELEASE_PASSWORD
+
+          expected_signer=''
+          if [[ -n "$key_data" && -n "$APK_KEYSTORE_PASSWORD" ]]; then
+            key_file="$(mktemp "$RUNNER_TEMP/pol-signing.XXXXXX")"
+            cert_file="$key_file.der"
+            trap 'rm -f "$key_file" "$cert_file" "$properties"' EXIT
+            printf '%s' "$key_data" | base64 --decode > "$key_file"
+            unset key_data
+            export APK_KEYSTORE_FILE="$key_file" APK_KEYSTORE_ALIAS="$key_alias" APK_KEYSTORE_PROPERTIES="$properties"
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          def property_value(value):
+              return (value.replace("\\", "\\\\")
+                           .replace("\n", "\\n")
+                           .replace("\r", "\\r")
+                           .replace("\t", "\\t")
+                           .replace("\f", "\\f")
+                           .replace(" ", "\\ "))
+
+          values = {
+              "storeFile": os.environ["APK_KEYSTORE_FILE"],
+              "storePassword": os.environ["APK_KEYSTORE_PASSWORD"],
+              "keyAlias": os.environ["APK_KEYSTORE_ALIAS"],
+              "keyPassword": os.environ["APK_KEYSTORE_PASSWORD"],
+          }
+          Path(os.environ["APK_KEYSTORE_PROPERTIES"]).write_text(
+              "".join(f"{key}={property_value(value)}\n" for key, value in values.items()),
+              encoding="utf-8",
+          )
+          PY
+            keytool -exportcert -keystore "$key_file" -storepass:env APK_KEYSTORE_PASSWORD \
+              -alias "$key_alias" -file "$cert_file"
+            expected_signer="$(sha256sum "$cert_file" | cut -d ' ' -f 1)"
+          elif [[ "$MANUAL_BUILD" == true || -n "$key_data" || -n "$APK_KEYSTORE_PASSWORD" ]]; then
+            printf '::error::Configure both POL_ANDROID_%s_KEYSTORE_BASE64 and POL_ANDROID_%s_KEYSTORE_PASSWORD\n' \
+              "${POL_BUILD_MODE^^}" "${POL_BUILD_MODE^^}"
+            exit 1
+          else
+            echo "::notice::Building a CI check APK with a temporary debug signing key"
+          fi
+          unset APK_KEYSTORE_PASSWORD
+
+          scripts/build-android.sh "$POL_BUILD_MODE"
+
+          apk="pol-vpn-$POL_BUILD_MODE.apk"
+          (
+            cd out
+            sha256sum --check "$apk.sha256"
+          )
+          tools="$ANDROID_HOME/build-tools/$POL_BUILD_TOOLS_VERSION"
+          badging="$("$tools/aapt" dump badging "out/$apk")"
+          package_line="$(sed -n '/^package: /p' <<< "$badging")"
+          if [[ "$package_line" != "package: name='$apk_id' versionCode='$VERSION_CODE' versionName='$VERSION_NAME'"* ]]; then
+            printf '::error::Unexpected Android manifest metadata: %s\n' "$package_line"
+            exit 1
+          fi
+          signing="$("$tools/apksigner" verify --print-certs "out/$apk")"
+          signer="$(sed -nE 's/^Signer #[0-9]+ certificate SHA-256 digest: (.*)$/\1/p' <<< "$signing")"
+          if [[ -n "$expected_signer" && "${signer,,}" != "$expected_signer" ]]; then
+            echo "::error::APK signer does not match the configured certificate"
+            exit 1
+          fi
+          if [[ -n "$expected_signer" ]]; then
+            echo 'upload=true' >> "$GITHUB_OUTPUT"
+            printf 'APK certificate SHA-256: `%s`\n' "$signer" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Prepare candidate release notes
+        if: inputs.build_type == 'release'
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+        run: |
+          awk -v version="$VERSION_NAME" '
+            /^## / {
+              if (found) exit
+              heading = $2
+              gsub(/[][]/, "", heading)
+              if (heading == version) { found = 1; next }
+            }
+            found { print }
+          ' CHANGELOG.md > out/release-notes.md
+          if ! grep -q '[^[:space:]]' out/release-notes.md; then
+            printf '::error::Add a %s section to CHANGELOG.md before generating a release candidate\n' "$VERSION_NAME"
+            exit 1
+          fi
+
+      - name: Package corresponding source and license
+        if: steps.build.outputs.upload == 'true'
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git archive --format=tar.gz --prefix=pol-vpn-source/ --output=out/pol-vpn-source.tar.gz "$GITHUB_SHA"
+          cp LICENSE docs/LICENSE_COMPLIANCE.md out/
+          printf '%s\n' "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/tree/$GITHUB_SHA" > out/SOURCE.txt
+
+      - name: Upload verified Android artifact
+        if: steps.build.outputs.upload == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pol-vpn-${{ env.POL_BUILD_MODE }}-${{ steps.version.outputs.name }}-${{ steps.version.outputs.code }}
+          path: |
+            out/pol-vpn-${{ env.POL_BUILD_MODE }}.apk
+            out/pol-vpn-${{ env.POL_BUILD_MODE }}.apk.sha256
+            out/pol-vpn-source.tar.gz
+            out/SOURCE.txt
+            out/LICENSE
+            out/LICENSE_COMPLIANCE.md
+            out/release-notes.md
+          if-no-files-found: error
