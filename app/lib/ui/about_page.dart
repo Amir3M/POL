@@ -83,7 +83,7 @@ class _AboutPageState extends State<AboutPage> {
     final muted = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
-    final github = githubRepo.isEmpty ? '' : 'https://github.com/$githubRepo';
+    const github = 'https://github.com/Amir3M/POL/tree/codex/pol-arman-visual-fork';
     return ListView(
       padding: pagePadding(context),
       children: [
@@ -97,6 +97,11 @@ class _AboutPageState extends State<AboutPage> {
               Text(l.appTitle, style: theme.textTheme.titleLarge),
               const SizedBox(height: 4),
               Text(l.unofficialNote, style: muted, textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              TextButton(
+                onPressed: () => openLink(context, 'https://github.com/armanlife/arman-vpn-client'),
+                child: const Text('Based on Arman VPN · GPL-3.0'),
+              ),
               const SizedBox(height: 20),
               _Line(label: l.appVersionLabel, value: appVersion),
               const Divider(height: 24),
@@ -145,16 +150,14 @@ class _AboutPageState extends State<AboutPage> {
                         Text(l.sourceCode, style: theme.textTheme.titleSmall),
                         const SizedBox(height: 2),
                         Text(
-                          github.isEmpty ? l.repoNotSet : github,
+                          github,
                           style: muted,
                         ),
                       ],
                     ),
                   ),
                   OutlinedButton.icon(
-                    onPressed: github.isEmpty
-                        ? null
-                        : () => openLink(context, github),
+                    onPressed: () => openLink(context, github),
                     icon: const Icon(Icons.open_in_new_rounded, size: 18),
                     label: const Text('GitHub'),
                   ),
