@@ -184,6 +184,15 @@ class FakeApi implements CoreApi {
     'switch_threshold_percent': 90,
   });
 
+  String? quotaRefreshError;
+
+  @override
+  Future<void> refreshAccount(String id) async {
+    if (quotaRefreshError case final message?) {
+      throw CoreApiException(503, message);
+    }
+  }
+
   @override
   Future<void> setSystemProxy(String mode) async {
     if (mode == 'set' && this.mode == 'set') {
@@ -1358,7 +1367,7 @@ void main() {
   });
 
   testWidgets(
-    'the accounts page shows quota bars and switching for two accounts',
+    'the accounts page shows quota per account and keeps switching available',
     (tester) async {
       stillMotion(tester);
       tester.view.physicalSize = const Size(1200, 1400);
@@ -1366,6 +1375,11 @@ void main() {
       addTearDown(tester.view.reset);
 
       final api = FakeApi();
+      api.accountsJson.first['usage'] = {
+        'limit_bytes': 75 << 30,
+        'remaining_bytes': 45 << 30,
+        'reset_at': '2027-01-15T12:00:00',
+      };
       api.accountsJson.last.remove('usage');
       final core = CoreController(
         () async => api,
@@ -1377,13 +1391,46 @@ void main() {
       await tester.tap(find.text('Accounts').first);
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('0 MB'), findsOneWidget);
+      expect(find.text('Quota not read yet'), findsOneWidget);
+      expect(find.textContaining('0 MB'), findsNothing);
+      expect(find.textContaining('Each Firefox Account has'), findsNothing);
+      expect(find.textContaining('75.0 GB'), findsOneWidget);
+      expect(find.textContaining('resets Jan 15'), findsOneWidget);
       expect(
         tester
             .widgetList<QuotaBar>(find.byType(QuotaBar))
             .map((bar) => bar.percent),
-        [40.0, 0.0],
+        [40.0],
       );
+
+      api.accountsJson.first['usage'] = {'unlimited': true};
+      await core.refresh(accountsToo: true);
+      await tester.pumpAndSettle();
+      expect(find.text('Unlimited quota'), findsOneWidget);
+      expect(find.text('Quota not read yet'), findsOneWidget);
+      expect(
+        find.textContaining('Firefox Accounts have unlimited'),
+        findsNothing,
+      );
+      expect(tester.widget<QuotaBar>(find.byType(QuotaBar)).unlimited, isTrue);
+
+      api.quotaRefreshError = 'Quota refresh unavailable';
+      final unknownCard = find.ancestor(
+        of: find.text('bob@example.com'),
+        matching: find.byType(Card),
+      );
+      await tester.tap(
+        find.descendant(
+          of: unknownCard,
+          matching: find.byType(PopupMenuButton<String>),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Refresh quota'));
+      await tester.pumpAndSettle();
+      expect(find.text('Quota refresh unavailable'), findsOneWidget);
+      expect(find.text('Quota not read yet'), findsOneWidget);
+
       final row = find.text('Account switching');
       expect(row, findsOneWidget);
       expect(

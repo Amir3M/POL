@@ -39,7 +39,6 @@ class _AccountsPageState extends State<AccountsPage> {
     final core = widget.core;
     final settings = widget.settings;
     final l = AppLocalizations.of(context);
-    final theme = Theme.of(context);
     final list = core.accounts?.accounts ?? const <Account>[];
     final threshold = core.accounts?.thresholdPercent ?? 0;
     return ListView(
@@ -83,35 +82,6 @@ class _AccountsPageState extends State<AccountsPage> {
             _AccountSwitching(core: core, percent: threshold),
           ],
         ],
-        // More accounts, more data: each has its own month's allowance,
-        // and the app moves to the next one by itself.
-        const SizedBox(height: 12),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.info_outline_rounded,
-              size: 18,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                [
-                  if (_noLimitNow(list))
-                    l.accountsGuideUnlimited
-                  else
-                    l.accountsGuide(_allowance(list)),
-                  if (list.length > 1 && !_noLimitNow(list))
-                    l.accountsOrderNote(threshold.round()),
-                ].join(' '),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-        ),
         const SizedBox(height: 16),
         const _CreateAccountGuide(),
       ],
@@ -317,25 +287,6 @@ String? accountReason(AppLocalizations l, Account a, double threshold) {
     _ => null,
   };
   return known ?? (a.reason.isEmpty ? null : a.reason);
-}
-
-/// Whether every account that has been read reports no limit, in which case
-/// the note must not name a monthly allowance that is not being applied.
-bool _noLimitNow(List<Account> list) {
-  final read = [for (final a in list) if (a.usage != null) a.usage!];
-  return read.isNotEmpty && read.every((u) => u.unlimited);
-}
-
-/// An account's monthly allowance as the accounts report it (50 GB until
-/// one has been read).
-String _allowance(List<Account> list) {
-  final limit =
-      list
-          .map((a) => a.usage?.limitBytes ?? 0)
-          .where((b) => b > 0)
-          .firstOrNull ??
-      50 << 30;
-  return formatBytes(limit).replaceAll('.0 ', ' ');
 }
 
 /// Where to make a Firefox Account: Mozilla's site, then Add account here.
@@ -560,7 +511,9 @@ class _AccountCard extends StatelessWidget {
                           Text(reason, style: muted),
                         ],
                         const SizedBox(height: 12),
-                        if (usage?.unlimited == true) ...[
+                        if (usage == null)
+                          Text(l.quotaNotRead, style: muted)
+                        else if (usage.unlimited) ...[
                           const QuotaBar(percent: 100, unlimited: true),
                           const SizedBox(height: 6),
                           Row(
@@ -577,21 +530,19 @@ class _AccountCard extends StatelessWidget {
                           ),
                         ] else ...[
                           QuotaBar(
-                            percent: usage == null ? 0 : a.usedPercent,
+                            percent: a.usedPercent,
                             threshold: threshold,
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            usage == null
-                                ? ltr('0 MB')
-                                : [
-                                    l.usedOf(
-                                      formatBytes(usage.usedBytes),
-                                      formatBytes(usage.limitBytes),
-                                    ),
-                                    if (usage.resetAt != null)
-                                      l.resets(formatDate(l, usage.resetAt!)),
-                                  ].join(' · '),
+                            [
+                              l.usedOf(
+                                formatBytes(usage.usedBytes),
+                                formatBytes(usage.limitBytes),
+                              ),
+                              if (usage.resetAt != null)
+                                l.resets(formatDate(l, usage.resetAt!)),
+                            ].join(' · '),
                             style: muted,
                           ),
                         ],
