@@ -82,7 +82,15 @@ func fetchProxyPassWith(ctx context.Context, endpoint, accessToken string, send 
 	if err != nil {
 		return nil, fmt.Errorf("reading guardian response: %w", err)
 	}
+	info, err := decodeProxyPass(body, resp.Header, receivedAt)
+	if err != nil {
+		return nil, err
+	}
+	validPass = info.ExpiresAt().After(time.Now())
+	return info, nil
+}
 
+func decodeProxyPass(body []byte, header http.Header, receivedAt time.Time) (*ProxyPassInfo, error) {
 	var passResp proxyPassResponse
 	if err := json.Unmarshal(body, &passResp); err != nil {
 		return nil, &proxyPassFormatError{fmt.Errorf("parsing proxy pass response: %w", err)}
@@ -100,20 +108,18 @@ func fetchProxyPassWith(ctx context.Context, endpoint, accessToken string, send 
 		return nil, &proxyPassFormatError{err}
 	}
 
-	usage, usageErr := parseProxyUsage(resp.Header)
-	info := &ProxyPassInfo{
+	usage, usageErr := parseProxyUsage(header)
+	return &ProxyPassInfo{
 		RawToken:        passResp.Token,
 		Claims:          *claims,
-		QuotaMax:        resp.Header.Get("X-Quota-Limit"),
-		QuotaLeft:       resp.Header.Get("X-Quota-Remaining"),
-		QuotaReset:      resp.Header.Get("X-Quota-Reset"),
+		QuotaMax:        header.Get("X-Quota-Limit"),
+		QuotaLeft:       header.Get("X-Quota-Remaining"),
+		QuotaReset:      header.Get("X-Quota-Reset"),
 		Usage:           usage,
 		UsageErr:        usageErr,
 		ReceivedAt:      receivedAt,
 		claimTimeOffset: offset,
-	}
-	validPass = info.ExpiresAt().After(time.Now())
-	return info, nil
+	}, nil
 }
 
 // fetchProxyUsage reads the quota headers from the token endpoint.
