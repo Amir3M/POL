@@ -26,7 +26,7 @@ Setup reuses matching tools and installed SDK packages. It installs missing tool
 
 The build binds the Go mobile package into a local AAR, then builds one universal APK with ARMv7, ARM64 and x86-64 native libraries. The script verifies the APK signature and writes the APK and its SHA-256 file under `out/`. Override the output directory with `POL_ANDROID_ARTIFACT_DIR`.
 
-Use `scripts/build-android.sh debug` once the POL application ID is in place. The script checks the APK's package ID before writing an artifact.
+Use `scripts/build-android.sh debug` to build the offline preview. The script checks the APK's package ID, signature, permissions, launcher and backup setting before writing an artifact. The preview omits Android's internet permission, so use `flutter test` for widget development and install an APK to test Android startup.
 
 ## Upstream baseline
 

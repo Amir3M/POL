@@ -11,8 +11,8 @@ on:
         required: true
         type: choice
         options:
-          - baseline
           - debug
+          - baseline
           - release
       release_version:
         description: Version name from app/pubspec.yaml, required for release builds
@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: android-${{ github.workflow }}-${{ github.ref }}-${{ inputs.build_type || github.event_name }}
+  group: android-${{ github.workflow }}-${{ github.ref }}-${{ inputs.build_type || 'debug' }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      POL_BUILD_MODE: ${{ inputs.build_type || 'baseline' }}
+      POL_BUILD_MODE: ${{ inputs.build_type || 'debug' }}
     steps:
       - uses: actions/checkout@v7
         with:

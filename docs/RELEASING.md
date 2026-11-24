@@ -1,8 +1,6 @@
 # Android builds and release candidates
 
-The Android workflow currently verifies Arman VPN v1.0.19 at commit `492dd7f389c539790cde3d07167535d28788a0d0` for pull requests, pushes to `main` and manual **baseline** runs. The run summary records the checksum of the upstream release variant built with the runner's local Android debug key.
-
-The POL options below require the independent application ID and signing configuration. Once those are in place, use POL debug as the default. Debug builds with the configured signing key can upload an APK and its SHA-256 checksum to the workflow run. Pull requests use a temporary runner key for build verification.
+The Android workflow builds and tests POL debug on pull requests and pushes to `main`. Pull requests use a temporary runner key for build verification. A main-branch push with the configured shared debug signing key can upload the APK and checksum. A manual **baseline** run verifies Arman VPN v1.0.19 at commit `492dd7f389c539790cde3d07167535d28788a0d0`. Its run summary records the checksum of the upstream release variant built with the runner's local Android debug key.
 
 ## Signing keys
 

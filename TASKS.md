@@ -9,13 +9,15 @@
 - [ ] Verify a clean Codespaces startup and toolchain downloads.
 - [x] Run upstream Go vet, Go unit tests, gVisor TUN checks and the native TUN adapter build.
 - [x] Run upstream Flutter analysis and tests.
-- [ ] Build the untouched Android APK and record package, signer and checksum.
+- [x] Build and inspect the untouched Android source locally with version-matched cached Flutter libraries.
+- [ ] Verify a clean upstream APK build with the official Flutter artifact repository.
 
 ## M2 · First POL Android build
 
-- [ ] Apply POL package IDs, supplied logo, splash, local titles, attribution and artifact naming.
-- [ ] Disable upstream service access, account collection and automatic external requests in the POL preview.
-- [ ] Build and verify an installable, offline debug APK. Enable live VPN functions only after provider approval.
+- [x] Apply POL package IDs, a vector based on the supplied logo, splash, local titles, attribution and artifact naming.
+- [x] Disable upstream service access, account collection and automatic external requests in the POL preview.
+- [x] Build and inspect the signed offline debug APK.
+- [ ] Install and launch the APK on a physical Android device.
 
 ## M3 · Functional verification
 
@@ -32,6 +34,6 @@
 ## M5 · Release candidate
 
 - [x] Configure and statically validate the GitHub Android workflow.
-- [ ] Verify a hosted workflow, APK package IDs, stable debug signing and artifact checksums.
+- [ ] Verify a hosted workflow and test APK updates with the owner's shared debug signing key.
 - [ ] Complete regression and physical testing, transitive license inventory and corresponding source distribution.
 - [ ] Configure production signing and publish an owner-approved pre-release after the release checks pass.
