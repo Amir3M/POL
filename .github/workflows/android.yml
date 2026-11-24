@@ -3,6 +3,7 @@ name: Android
 on:
   push:
     branches: [main]
+    tags: ['pol-v*-preview']
   pull_request:
   workflow_dispatch:
     inputs:
@@ -27,10 +28,15 @@ concurrency:
 
 jobs:
   android:
+    if: github.event_name != 'push' || !github.event.deleted
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    outputs:
+      preview_artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      version_name: ${{ steps.version.outputs.name }}
     env:
       POL_BUILD_MODE: ${{ inputs.build_type || 'debug' }}
+      POL_PREVIEW_BUILD: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -51,6 +57,7 @@ jobs:
         id: version
         env:
           REQUESTED_VERSION: ${{ inputs.release_version }}
+          OWNER_CREATED_TAG: ${{ github.actor == github.repository_owner && github.event.created }}
         run: |
           version_info="$(sed -nE 's/^version: ([0-9]+\.[0-9]+\.[0-9]+)\+([1-9][0-9]*)$/\1 \2/p' "${POL_REPO_ROOT:-.}/app/pubspec.yaml")"
           read -r version version_code <<< "$version_info"
@@ -61,6 +68,13 @@ jobs:
           if [[ "$POL_BUILD_MODE" == release && "$REQUESTED_VERSION" != "$version" ]]; then
             printf '::error::Release version must match app/pubspec.yaml (%s)\n' "$version"
             exit 1
+          fi
+          if [[ "$POL_PREVIEW_BUILD" == true ]]; then
+            if [[ "$OWNER_CREATED_TAG" != true || "$GITHUB_REF_NAME" != "pol-v$version-preview" ]]; then
+              printf '::error::The repository owner must create a new pol-v%s-preview tag\n' "$version"
+              exit 1
+            fi
+            test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           fi
           printf 'name=%s\ncode=%s\n' "$version" "$version_code" >> "$GITHUB_OUTPUT"
 
@@ -128,7 +142,7 @@ jobs:
           RELEASE_PASSWORD: ${{ inputs.build_type == 'release' && secrets.POL_ANDROID_RELEASE_KEYSTORE_PASSWORD || '' }}
           VERSION_NAME: ${{ steps.version.outputs.name }}
           VERSION_CODE: ${{ steps.version.outputs.code }}
-          MANUAL_BUILD: ${{ github.event_name == 'workflow_dispatch' }}
+          REQUIRE_SIGNING: ${{ github.event_name == 'workflow_dispatch' || env.POL_PREVIEW_BUILD == 'true' }}
         shell: bash
         run: |
           source scripts/android-env.sh
@@ -182,7 +196,7 @@ jobs:
             keytool -exportcert -keystore "$key_file" -storepass:env APK_KEYSTORE_PASSWORD \
               -alias "$key_alias" -file "$cert_file"
             expected_signer="$(sha256sum "$cert_file" | cut -d ' ' -f 1)"
-          elif [[ "$MANUAL_BUILD" == true || -n "$key_data" || -n "$APK_KEYSTORE_PASSWORD" ]]; then
+          elif [[ "$REQUIRE_SIGNING" == true || -n "$key_data" || -n "$APK_KEYSTORE_PASSWORD" ]]; then
             printf '::error::Configure both POL_ANDROID_%s_KEYSTORE_BASE64 and POL_ANDROID_%s_KEYSTORE_PASSWORD\n' \
               "${POL_BUILD_MODE^^}" "${POL_BUILD_MODE^^}"
             exit 1
@@ -216,6 +230,22 @@ jobs:
             printf 'APK certificate SHA-256: `%s`\n' "$signer" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Prepare offline preview release notes
+        if: env.POL_PREVIEW_BUILD == 'true'
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          cat > out/release-notes.md <<'NOTES'
+          This offline Android preview includes POL VPN branding and diagnostics. Sign-in and VPN connectivity are disabled pending service authorization.
+
+          Download `pol-vpn-debug.apk` and its checksum, then run `sha256sum --check pol-vpn-debug.apk.sha256` before installation. The signed APK uses the Android package `com.polvpn.app.debug`.
+
+          The release includes the corresponding source archive, dependency notices and GPL-3.0 license.
+          NOTES
+          printf '\nVersion %s, Android build %s.\n\nSource commit `%s`.\n' \
+            "$VERSION_NAME" "$VERSION_CODE" "$GITHUB_SHA" >> out/release-notes.md
+
       - name: Prepare candidate release notes
         if: inputs.build_type == 'release'
         env:
@@ -245,9 +275,10 @@ jobs:
 
       - name: Upload verified Android artifact
         if: steps.build.outputs.upload == 'true'
+        id: upload
         uses: actions/upload-artifact@v7
         with:
-          name: pol-vpn-${{ env.POL_BUILD_MODE }}-${{ steps.version.outputs.name }}-${{ steps.version.outputs.code }}
+          name: ${{ env.POL_PREVIEW_BUILD == 'true' && github.ref_name || format('pol-vpn-{0}-{1}-{2}', env.POL_BUILD_MODE, steps.version.outputs.name, steps.version.outputs.code) }}
           path: |
             out/pol-vpn-${{ env.POL_BUILD_MODE }}.apk
             out/pol-vpn-${{ env.POL_BUILD_MODE }}.apk.sha256
@@ -258,3 +289,97 @@ jobs:
             out/LICENSE_COMPLIANCE.md
             out/release-notes.md
           if-no-files-found: error
+
+  publish-preview:
+    needs: android
+    if: github.event_name == 'push' && github.ref_type == 'tag' && github.actor == github.repository_owner && github.event.created && needs.android.outputs.preview_artifact_id != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download verified preview artifact
+        uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.android.outputs.preview_artifact_id }}
+          path: out
+
+      - name: Verify and publish GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ needs.android.outputs.version_name }}
+        shell: bash
+        run: |
+          tag="$GITHUB_REF_NAME"
+          test "$tag" = "pol-v$VERSION_NAME-preview"
+          test "$(cat out/SOURCE.txt)" = "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/tree/$GITHUB_SHA"
+          (cd out && sha256sum --check pol-vpn-debug.apk.sha256)
+
+          check_tag() {
+            local ref kind commit
+            ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object | [.type, .sha] | @tsv')"
+            read -r kind commit <<< "$ref"
+            while [[ "$kind" == tag ]]; do
+              ref="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$commit" --jq '.object | [.type, .sha] | @tsv')"
+              read -r kind commit <<< "$ref"
+            done
+            if [[ "$kind" != commit || "$commit" != "$GITHUB_SHA" ]]; then
+              echo '::error::The remote preview tag changed after the workflow started'
+              exit 1
+            fi
+          }
+          check_tag
+
+          assets=(pol-vpn-debug.apk pol-vpn-debug.apk.sha256 pol-vpn-source.tar.gz
+                  pol-vpn-notices.tar.gz SOURCE.txt LICENSE LICENSE_COMPLIANCE.md)
+          for asset in "${assets[@]}"; do
+            test -s "out/$asset"
+          done
+
+          release=(--repo "$GITHUB_REPOSITORY")
+          title="POL VPN $VERSION_NAME Android preview"
+          metadata="$(mktemp)"
+          if ! gh release view "$tag" "${release[@]}" \
+              --json isDraft,isPrerelease,tagName,name,body,assets > "$metadata"; then
+            files=("${assets[@]/#/out/}")
+            gh release create "$tag" "${files[@]}" "${release[@]}" \
+              --verify-tag --prerelease --latest=false --draft --target "$GITHUB_SHA" \
+              --title "$title" --notes-file out/release-notes.md
+            gh release view "$tag" "${release[@]}" \
+              --json isDraft,isPrerelease,tagName,name,body,assets > "$metadata"
+          fi
+
+          marker="$(printf 'Source commit `%s`.' "$GITHUB_SHA")"
+          jq -e --arg tag "$tag" --arg title "$title" --arg marker "$marker" \
+            '.tagName == $tag and .name == $title and .isPrerelease and (.body | contains($marker))' \
+            "$metadata" > /dev/null
+
+          if jq -e '.isDraft' "$metadata" > /dev/null; then
+            missing=()
+            for asset in "${assets[@]}"; do
+              if ! jq -e --arg name "$asset" '.assets | any(.name == $name)' "$metadata" > /dev/null; then
+                missing+=("out/$asset")
+              fi
+            done
+            if (( ${#missing[@]} )); then
+              gh release upload "$tag" "${missing[@]}" "${release[@]}"
+            fi
+          fi
+
+          verify_dir="$(mktemp -d)"
+          gh release download "$tag" "${release[@]}" --dir "$verify_dir" --pattern '*'
+          diff -u <(printf '%s\n' "${assets[@]}" | sort) <(ls -1 "$verify_dir" | sort)
+          for asset in "${assets[@]}"; do
+            cmp "out/$asset" "$verify_dir/$asset"
+          done
+
+          if jq -e '.isDraft' "$metadata" > /dev/null; then
+            check_tag
+            gh release edit "$tag" "${release[@]}" \
+              --verify-tag --draft=false --prerelease --latest=false
+          fi
+          release_url="$(gh release view "$tag" "${release[@]}" --json isDraft,isPrerelease,url \
+            --jq 'select(.isPrerelease and (.isDraft | not)).url')"
+          test -n "$release_url"
+          printf 'Published and verified [the Android preview prerelease](%s).\n' "$release_url" >> "$GITHUB_STEP_SUMMARY"
