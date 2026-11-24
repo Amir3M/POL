@@ -1,13 +1,12 @@
 # Android development
 
-Open this repository in a GitHub Codespace. The devcontainer uses JDK 21 and runs `scripts/setup-android.sh` once the checkout is ready. A 4-core, 16 GB Codespace is sufficient. The setup installs Android tooling and Flutter's Android artifacts. The first build or test resolves the project dependencies into the standard Gradle, pub, and Go caches.
+Open this repository in a GitHub Codespace. The devcontainer uses JDK 21 and runs `scripts/setup-android.sh` once the checkout is ready. A 4-core, 16 GB Codespace is the target configuration. Setup installs Android tooling and Flutter's Android artifacts. The first build or test resolves the project dependencies into the standard Gradle, pub, and Go caches.
 
-For an existing x86_64 Linux environment with JDK 21, run the same commands from the repository root:
+Run these commands from the repository root on an x86_64 Linux system with JDK 21.
 
 ```sh
 scripts/setup-android.sh
 scripts/test-android.sh
-scripts/build-android.sh debug
 ```
 
 On a bare Linux environment, install Git, curl, jq, xz, unzip, util-linux, and libGL for Flutter's host test engine. Set `JAVA_HOME` if `javac` is outside `PATH`. The script accepts Android SDK licenses when it needs to install components.
@@ -27,18 +26,24 @@ Setup reuses matching tools and installed SDK packages. It installs missing tool
 
 The build binds the Go mobile package into a local AAR, then builds one universal APK with ARMv7, ARM64 and x86-64 native libraries. The script verifies the APK signature and writes the APK and its SHA-256 file under `out/`. Override the output directory with `POL_ANDROID_ARTIFACT_DIR`.
 
+Use `scripts/build-android.sh debug` once the POL application ID is in place. The script checks the APK's package ID before writing an artifact.
+
 ## Upstream baseline
 
-Run the scripts from the POL checkout and build the original sources in a separate worktree:
+To reproduce the original APK, create a separate worktree and point the POL scripts at it.
 
 ```sh
+git remote get-url upstream >/dev/null 2>&1 ||
+  git remote add upstream https://github.com/armanlife/arman-vpn-client.git
 git fetch upstream --tags
 git worktree add --detach ../arman-baseline 492dd7f389c539790cde3d07167535d28788a0d0
 POL_REPO_ROOT="$(realpath ../arman-baseline)" scripts/test-android.sh
-POL_REPO_ROOT="$(realpath ../arman-baseline)" scripts/build-android.sh baseline
+POL_REPO_ROOT="$(realpath ../arman-baseline)" \
+  POL_ANDROID_ARTIFACT_DIR="$(realpath -m ../arman-baseline-out)" \
+  scripts/build-android.sh baseline
 ```
 
-This mode uses the original application ID and release build variant. Arman VPN signs a checkout without release properties with the local Android debug key. The result is `../arman-baseline/out/arman-vpn-baseline.apk`. To inspect the baseline worktree after a build, use `git -C ../arman-baseline status --short`.
+This mode uses the original application ID and release build variant. Arman VPN signs a checkout without release properties with the local Android debug key. The result is `../arman-baseline-out/arman-vpn-baseline.apk`. To inspect the baseline worktree after a build, use `git -C ../arman-baseline status --short`.
 
 ## Release build
 

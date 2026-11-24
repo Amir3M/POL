@@ -5,6 +5,7 @@ POL means “bridge” in Persian. POL VPN is an independent, open-source Androi
 The current work verifies the upstream Android build and prepares POL's own identity and release process. Live Mozilla sign-in and network access require authorization for POL. See the current milestone and build status before installing or testing any APK.
 
 - [Project status](PROJECT_STATUS.md)
+- [Android build](docs/ANDROID_BUILD.md)
 - [Upstream audit](docs/UPSTREAM_AUDIT.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Test report](docs/TEST_REPORT.md)

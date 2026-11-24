@@ -1,5 +1,6 @@
 # Builds. dist/ may hold a data folder with account credentials.
 /dist/
+/out/
 *.exe
 *.aar
 *.apk
