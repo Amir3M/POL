@@ -47,6 +47,12 @@ git push origin refs/tags/pol-vX.Y.Z-tunnel-test
 
 The tag workflow verifies the build and signer and runs the test on an Android emulator. The emulator checks session restoration after process exit and after installing a same-signer APK one build number higher. That APK is used only during CI. The workflow verifies transfer in both directions from Android's shell UID, packages the four release assets and publishes a separate **Tunnel Test** prerelease. The test uses `com.polvpn.app.debug` and the established debug certificate so it can update the offline preview in place. Use the [controlled tunnel checklist](DEVICE_TEST_CHECKLIST.md#controlled-tunnel-test) for device verification.
 
+## First authorized direct build
+
+The draft version `0.1.3+4` reserves a build number above published tunnel test `0.1.2+3`. The existing offline and tunnel-test build modes already check the application ID. The signed tunnel-test CI job checks the established certificate. The current manifest and launch path gate live activity.
+
+Confirm the approved public native OAuth registration, exact Android callback, refresh contract, Guardian entitlement and allowed H2 egress before wiring an online build. The browser flow should use the registered callback and the isolated Keystore store. CoreService can keep the existing TUN path when the Go daemon uses the approved direct pass source for both startup and renewal. Use sanitized Diagnostics and test the approved host contract, signed update and traffic. Publish a signed experimental prerelease with checksum, corresponding source and notices only after the authorized build passes CI. [Connection audit](ANDROID_CONNECTION_PATH.md#direct-guardian-first-test)
+
 ## Prepare a release candidate
 
 Set `version: X.Y.Z+BUILD` in `app/pubspec.yaml`, with a build number higher than the previous published APK, and add a corresponding `## [X.Y.Z]` section to `CHANGELOG.md`. Manually dispatch the **Android** workflow, choose **release**, and enter `X.Y.Z`. Download the tested, signed artifact and verify it with `sha256sum --check pol-vpn-release.apk.sha256`.

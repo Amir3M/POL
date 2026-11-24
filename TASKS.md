@@ -25,8 +25,11 @@
 - [x] Implement the separate Android tunnel-test mode with Keystore-backed synthetic sessions, fixture quota and per-stage diagnostics.
 - [x] Verify the Go fixture's authorization, transfer, renewal and destination restrictions with loopback integration tests.
 - [x] Verify the signed tunnel-test APK on the Android emulator, including a higher-code signed update, and publish and verify the public prerelease.
-- [ ] Verify the controlled transfer from another app and session continuity across a higher build number on a physical phone.
+- [x] Record the owner's physical Android 15 test of TUN, 256 KiB in each direction, synthetic session restoration and reconnection.
+- [ ] Verify session continuity across a higher build number on the physical phone.
 - [ ] Obtain provider approval, POL-specific OAuth registration and the service and quota contracts.
+- [x] Prepare and independently test POL OAuth PKCE, session binding and refresh, direct Guardian pass and quota, and the existing H2 CONNECT transfer path.
+- [x] Separate authorized session storage from the controlled fixture and expose the provider approval gate in debug Diagnostics.
 - [ ] Implement authorized sign-in, token restoration and refresh, logout, secure storage, backup exclusions and session reset.
 - [ ] Build the separate authorized connection APK and test upload and download from another app while Arman is closed.
 - [x] Remove hardcoded and aggregate quota claims from the retained account UI. Test unknown, reported unlimited and finite usage, reset dates and refresh failure with fixtures.
