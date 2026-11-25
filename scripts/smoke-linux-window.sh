@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-package="$(realpath "$1")"
+app="$1"
 screenshots="$(realpath -m "$2")"
 scale="$3"
 scratch="$(mktemp -d)"
@@ -17,11 +17,14 @@ trap cleanup EXIT
 mkdir -p "$screenshots" "$scratch/profile"
 # A blank profile displays the welcome page on a light, unclipped canvas.
 printf '%s\n' '{"theme":"light","language":"en"}' > "$scratch/profile/app-settings.json"
-tar -xzf "$package" -C "$scratch"
+if [[ "$app" == *.tar.gz ]]; then
+  tar -xzf "$app" -C "$scratch"
+  app="$scratch/amir-vpn/arman-vpn"
+fi
 openbox >"$screenshots/openbox-$scale.log" 2>&1 &
 wm_pid=$!
 export GDK_BACKEND=x11 GDK_SCALE="$scale" LIBGL_ALWAYS_SOFTWARE=1
-"$scratch/amir-vpn/arman-vpn" --data-dir="$scratch/profile" \
+"$app" --data-dir="$scratch/profile" \
   >"$screenshots/app-$scale.log" 2>&1 &
 app_pid=$!
 window="$(timeout 35 xdotool search --sync --onlyvisible --name '^AMiR VPN$' | sed -n '1p')"

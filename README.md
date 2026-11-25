@@ -6,9 +6,9 @@ AMiR VPN brings a new visual identity to the public source of [Arman VPN v1.0.19
 | --- | --- |
 | Android 7 and above | [Signed APK](https://github.com/Amir3M/POL/releases/latest/download/amir-vpn-android.apk) |
 | Windows x64 | [Installer](https://github.com/Amir3M/POL/releases/latest/download/amir-vpn-windows-setup-x64.exe) or [portable ZIP](https://github.com/Amir3M/POL/releases/latest/download/amir-vpn-windows-x64.zip) |
-| Linux x64 | [Portable archive](https://github.com/Amir3M/POL/releases/latest/download/amir-vpn-linux-x64.tar.gz) |
+| Linux x64 | [Debian / Ubuntu package](https://github.com/Amir3M/POL/releases/latest/download/amir-vpn-linux-x64.deb) or [portable archive](https://github.com/Amir3M/POL/releases/latest/download/amir-vpn-linux-x64.tar.gz) |
 
-Use **About → Check for updates** to find a newer stable AMiR VPN release in this repository and open the download for your platform. Install the package after download. To move from an earlier preview to v1, download the stable package from this table once. On Linux, extract the archive and run `./arman-vpn` from the `amir-vpn` directory.
+Use **About → Check for updates** to find a newer stable AMiR VPN release in this repository and open the download for your platform. Install the package after download. To move from an earlier preview to v1, download the stable package from this table once. On Debian or Ubuntu, install the downloaded package with `sudo apt install ./amir-vpn-linux-x64.deb`, then open AMiR VPN from the app menu or run `amir-vpn`. For the portable download, extract the archive and run `./arman-vpn` from the `amir-vpn` directory.
 
 The [latest release](https://github.com/Amir3M/POL/releases/latest) contains checksums, corresponding source, and dependency notices.
 

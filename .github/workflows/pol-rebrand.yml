@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       build: ${{ steps.release.outputs.build }}
+      deb_backfill: ${{ steps.release.outputs.deb_backfill }}
       version: ${{ steps.release.outputs.version }}
     steps:
       - uses: actions/checkout@v7
@@ -23,15 +24,22 @@ jobs:
           version="$(sed -nE 's/^version: ([0-9]+\.[0-9]+\.[0-9]+)\+[0-9]+$/\1/p' app/pubspec.yaml)"
           test -n "$version"
           tag="v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
           tags="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
             --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name')"
           latest="$(printf '%s\n' "$tags" | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/' | sort -V | tail -n 1)"
           if [[ "$tag" == "$latest" ]] || [[ -n "$latest" && "$(printf '%s\n' "$tag" "$latest" | sort -V | tail -n 1)" != "$tag" ]]; then
             echo "Stable release $latest already covers $tag."
             echo "build=false" >> "$GITHUB_OUTPUT"
+            if [[ "$tag" == "$latest" ]]; then
+              assets="$(gh release view "$tag" --json assets --jq '.assets[].name')"
+              if ! grep -Fxq amir-vpn-linux-x64.deb <<< "$assets" ||
+                 ! grep -Fxq amir-vpn-linux-x64.deb.sha256 <<< "$assets"; then
+                echo "deb_backfill=true" >> "$GITHUB_OUTPUT"
+              fi
+            fi
           else
             echo "build=true" >> "$GITHUB_OUTPUT"
-            echo "version=$version" >> "$GITHUB_OUTPUT"
           fi
   android:
     needs: plan
@@ -161,15 +169,17 @@ jobs:
           if-no-files-found: error
   linux:
     needs: plan
-    if: needs.plan.outputs.build == 'true'
+    if: needs.plan.outputs.build == 'true' || needs.plan.outputs.deb_backfill == 'true'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
+        if: needs.plan.outputs.build == 'true'
         with:
           go-version-file: core/go.mod
           cache-dependency-path: core/go.sum
       - uses: subosito/flutter-action@v2
+        if: needs.plan.outputs.build == 'true'
         with:
           # 3.50.1 fixes Linux OpenGL composition without framebuffer blits.
           flutter-version: 3.50.1
@@ -178,14 +188,49 @@ jobs:
       - name: Install desktop build dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq clang cmake ninja-build pkg-config libgtk-3-dev \
-            xvfb xauth openbox wmctrl xdotool imagemagick python3-pil
+          sudo apt-get install -y -qq xvfb xauth openbox wmctrl xdotool imagemagick python3-pil \
+            desktop-file-utils
       - name: Build Linux client
-        run: bash scripts/build-linux.sh
-      - name: Name release files
+        if: needs.plan.outputs.build == 'true'
         run: |
+          sudo apt-get install -y -qq clang cmake ninja-build pkg-config libgtk-3-dev
+          bash scripts/build-linux.sh
           mkdir -p out
           mv dist/*-Linux-amd64.tar.gz out/amir-vpn-linux-x64.tar.gz
+      - name: Fetch and verify the published Linux archive
+        if: needs.plan.outputs.deb_backfill == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          gh release download "v$VERSION" -p amir-vpn-linux-x64.tar.gz -p SHA256SUMS.txt -D out
+          cd out
+          grep -E '^[0-9a-f]{64}  amir-vpn-linux-x64\.tar\.gz
+      - name: Check Linux rendering at standard and HiDPI scale
+        run: |
+          for scale in 1 2; do
+            xvfb-run -a -s '-screen 0 1920x1600x24 +extension GLX' \
+              bash scripts/smoke-linux-window.sh /usr/bin/amir-vpn linux-smoke "$scale"
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: linux-window-smoke
+          path: linux-smoke/
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v7
+        with:
+          name: amir-vpn-linux
+          path: out/amir-vpn-linux-x64.*
+          if-no-files-found: error SHA256SUMS.txt | sha256sum --check -
+      - name: Build and install the Debian package
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          bash scripts/package-linux-deb.sh out/amir-vpn-linux-x64.tar.gz "$VERSION" out/amir-vpn-linux-x64.deb
+          sudo apt-get install -y ./out/amir-vpn-linux-x64.deb
+          test "$(dpkg-query -W -f='${Version}' amir-vpn)" = "$VERSION"
+          desktop-file-validate /usr/share/applications/amir-vpn.desktop
       - name: Check Linux rendering at standard and HiDPI scale
         run: |
           for scale in 1 2; do
@@ -220,10 +265,11 @@ jobs:
           VERSION: ${{ needs.plan.outputs.version }}
         run: |
           sha256sum --check amir-vpn-android.apk.sha256
+          sha256sum --check amir-vpn-linux-x64.deb.sha256
           printf '# Arman VPN version: %s\n' "$VERSION" > SHA256SUMS.txt
           sha256sum amir-vpn-android.apk amir-vpn-windows-x64.zip \
             amir-vpn-windows-setup-x64.exe amir-vpn-linux-x64.tar.gz \
-            pol-vpn-source.tar.gz pol-vpn-notices.tar.gz >> SHA256SUMS.txt
+            amir-vpn-linux-x64.deb pol-vpn-source.tar.gz pol-vpn-notices.tar.gz >> SHA256SUMS.txt
       - name: Publish the stable release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -255,4 +301,44 @@ jobs:
               .tag_name == $tag and .draft == false and .prerelease == false
               and ([.assets[].name] | sort) == $expected
               and all(.assets[]; .state == "uploaded" and .size > 0)
+            '
+
+  publish_deb:
+    needs: [plan, linux]
+    if: needs.plan.outputs.deb_backfill == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: amir-vpn-linux
+          path: release
+      - name: Attach the Debian package to the stable release
+        working-directory: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          tag="v$VERSION"
+          deb=amir-vpn-linux-x64.deb
+          test "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')" = "$tag"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease \
+            --jq 'select(.isDraft == false and .isPrerelease == false) | "stable"' | grep -Fx stable
+          assets="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+          sha256sum --check "$deb.sha256"
+          if grep -Fxq "$deb" <<< "$assets"; then
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "$deb" --clobber
+            sha256sum "$deb" > "$deb.sha256"
+          else
+            gh release upload "$tag" "$deb" --repo "$GITHUB_REPOSITORY"
+          fi
+          if ! grep -Fxq "$deb.sha256" <<< "$assets"; then
+            gh release upload "$tag" "$deb.sha256" --repo "$GITHUB_REPOSITORY"
+          fi
+          expected="$(sha256sum "$deb" | cut -d ' ' -f1)"
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" | jq -e \
+            --arg asset "$deb" --arg digest "sha256:$expected" '
+              any(.assets[]; .name == $asset and .state == "uploaded" and .digest == $digest)
+              and any(.assets[]; .name == ($asset + ".sha256") and .state == "uploaded")
             '
