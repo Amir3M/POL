@@ -18,7 +18,12 @@ test -x "$bundle/core/arman-vpn-core"
 test -x "$bundle/core/arman-vpn-tun"
 test ! -e "$bundle/portable"
 
-ln -s ../lib/amir-vpn/arman-vpn "$root/usr/bin/amir-vpn"
+# Pass the real binary path so Flutter can locate its data and libraries.
+cat >"$root/usr/bin/amir-vpn" <<'EOF'
+#!/bin/sh
+exec /usr/lib/amir-vpn/arman-vpn "$@"
+EOF
+chmod 0755 "$root/usr/bin/amir-vpn"
 install -Dm644 "$bundle/data/app_icon.png" \
   "$root/usr/share/icons/hicolor/256x256/apps/amir-vpn.png"
 install -Dm644 "$bundle/LICENSE" "$root/usr/share/doc/amir-vpn/copyright"
@@ -31,7 +36,7 @@ Comment=VPN and network proxy client
 Exec=amir-vpn
 Icon=amir-vpn
 Terminal=false
-Categories=Network;Security;
+Categories=Network;
 StartupWMClass=com.arman.firefoxvpn
 EOF
 
