@@ -104,18 +104,10 @@ String? updateProxy(CoreStatus? status) {
 /// Looks for a newer release on GitHub daily: the app looks a minute
 /// after it starts, and then every hour, whether a day has passed since
 /// the last look that worked. What it finds is kept in the settings, so the
-/// home page shows it after a restart too; the computer also shows a
-/// notification while the window is in the tray. The About page looks at
-/// once, whenever asked. Android's daily check uses stable, while
-/// About asks for latest without delaying its next daily check.
-///
-/// The desktop apps (Windows, Linux, macOS) install it themselves (their
-/// core: core/internal/update): Update downloads it through the VPN while it
-/// runs, and the app closes and opens again as the new version. With
-/// automatic updates (on unless turned off), a version found downloads in
-/// the background and installs the next time the app starts. When the core
-/// cannot install it, and on Android, whose core does not update, the notice
-/// opens the download.
+/// home page shows it after a restart too. The computer also shows a
+/// notification while the window is in the tray. The About page checks on
+/// demand. AMiR VPN offers direct GitHub downloads through the browser.
+/// A development update with a signed source can still use the native path.
 abstract final class Updates {
   /// How long a successful look holds.
   static const every = Duration(days: 1);
@@ -180,11 +172,12 @@ abstract final class Updates {
             a.startsWith('--data-dir='))
           a,
     ];
-    // A version found earlier, unless this app is already that one.
-    if (newerVersion(settings.updateVersion, appVersion)) {
-      available.value = settings.updateDetails.isEmpty
-          ? Release(settings.updateVersion, settings.updateUrl)
-          : releaseFromJson(settings.updateDetails);
+    // Ignore offers cached by an older build that checked upstream.
+    final cached = releaseFromJson(settings.updateDetails);
+    if (cached != null &&
+        isAmirDownload(cached) &&
+        newerVersion(cached.version, appVersion)) {
+      available.value = cached;
     }
     core.addListener(_onStatus);
     _first = Timer(const Duration(minutes: 1), _due);
@@ -218,6 +211,7 @@ abstract final class Updates {
     final core = _core, settings = _settings;
     final update = core?.status?.update;
     if (core == null || settings == null || update == null) return;
+    if (available.value?.browserDownloadOnly == true) return;
     if (!_started) {
       _started = true;
       // Not right after an update that failed (the old version started
@@ -261,7 +255,7 @@ abstract final class Updates {
     if (core == null || settings == null || release == null || update == null) {
       return;
     }
-    if (!newerVersion(release.version, appVersion)) {
+    if (release.browserDownloadOnly || !newerVersion(release.version, appVersion)) {
       return;
     }
     if (update.downloading || update.installing) return;
@@ -286,6 +280,7 @@ abstract final class Updates {
   /// The Update button: downloads [release] when needed, then installs it;
   /// the app closes and opens again as the new version.
   static Future<void> update(Release release) async {
+    if (release.browserDownloadOnly) return;
     final core = _core;
     if (core == null) return;
     failure.value = null;
@@ -337,8 +332,17 @@ abstract final class Updates {
   }
 
   static Future<void> _due() async {
-    final last = _settings?.updateCheckedAt;
-    if (last != null && DateTime.now().difference(last) < every) return;
+    final settings = _settings;
+    final last = settings?.updateCheckedAt;
+    final fromAnotherRepo =
+        settings != null &&
+        settings.updateVersion.isNotEmpty &&
+        !isAmirDownload(releaseFromJson(settings.updateDetails));
+    if (!fromAnotherRepo &&
+        last != null &&
+        DateTime.now().difference(last) < every) {
+      return;
+    }
     try {
       found(
         await checkForUpdate(

@@ -51,7 +51,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -115,12 +114,10 @@ func AppDir(exe string) string {
 
 // releasesURL is where GitHub serves a release's files:
 // <releasesURL>v<version>/<file>.
-const releasesURL = "https://github.com/armanlife/arman-vpn-client/releases/download/"
+const releasesURL = "https://github.com/Amir3M/POL/releases/download/"
 
-// ServerEnv names a release server to use instead of GitHub, for trying
-// updates with a local test release: it serves
-// <server>/releases/download/v<version>/<file>. A loopback server is
-// reached directly.
+// ServerEnv names a loopback server for local update tests. It serves
+// <server>/releases/download/v<version>/<file> and is reached directly.
 const ServerEnv = "ARMAN_VPN_UPDATE_SERVER"
 
 // Size limits of what a download reads.
@@ -269,13 +266,13 @@ func HasApp(appDir string) bool {
 func New(opts Options) *Manager {
 	m := &Manager{opts: opts, dir: filepath.Join(opts.DataDir, "update"), baseURL: releasesURL, status: Status{State: StateIdle}}
 	if server := strings.TrimRight(os.Getenv(ServerEnv), "/"); server != "" {
-		m.baseURL = server + "/releases/download/"
-		if u, err := url.Parse(server); err == nil {
-			if ip := net.ParseIP(u.Hostname()); u.Hostname() == "localhost" || (ip != nil && ip.IsLoopback()) {
-				m.direct = true
-			}
+		if u, err := url.Parse(server); err == nil && isLoopback(u.Hostname()) &&
+			(u.Scheme == "https" || u.Scheme == "http") && u.User == nil &&
+			u.Path == "" && u.RawQuery == "" && u.Fragment == "" {
+			m.baseURL = server + "/releases/download/"
+			m.direct = true
+			logx.Info("update: releases from server=%s", server)
 		}
-		logx.Info("update: releases from server=%s", server)
 	}
 	if updating(opts.DataDir) {
 		logx.Warn("update: another update of this app is running; its files stay")
@@ -431,7 +428,7 @@ func (m *Manager) DownloadFrom(v string, source Source) error {
 	if !version.Newer(v, m.opts.Current) {
 		return fmt.Errorf("version %s is not newer than this one (%s)", v, m.opts.Current)
 	}
-	if err := source.validate(); err != nil {
+	if err := m.validateSource(v, source); err != nil {
 		return err
 	}
 	m.mu.Lock()

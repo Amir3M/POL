@@ -2487,7 +2487,7 @@ class _UpdateNotice extends StatelessWidget {
       final VoidCallback? dismiss = release.mandatory
           ? null
           : () => settings.update(dismissedUpdate: release.version);
-      if (update == null) {
+      if (update == null || release.browserDownloadOnly) {
         return _UpdateBanner(
           palette: palette,
           icon: Icons.system_update_rounded,

@@ -7,11 +7,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
-// Source identifies an archive and its signed checksum list. URLs may use
-// any HTTPS host; plain HTTP is reserved for loopback test servers.
+// Source identifies an archive and its signed checksum list.
 type Source struct {
 	File         string `json:"file"`
 	URL          string `json:"url"`
@@ -24,7 +24,18 @@ const versionPrefix = "# Arman VPN version: "
 
 func (m *Manager) defaultSource(v string) Source {
 	base := m.baseURL + "v" + v + "/"
-	return Source{AssetName(v), base + AssetName(v), base + SumsFile, base + SigFile}
+	name := AssetName(v)
+	if m.baseURL == releasesURL {
+		switch runtime.GOOS {
+		case "windows":
+			name = "amir-vpn-windows-x64.zip"
+		case "linux":
+			if runtime.GOARCH == "amd64" {
+				name = "amir-vpn-linux-x64.tar.gz"
+			}
+		}
+	}
+	return Source{name, base + name, base + SumsFile, base + SigFile}
 }
 
 func (s Source) validate() error {
@@ -36,10 +47,35 @@ func (s Source) validate() error {
 		if err != nil || u.Hostname() == "" || u.User != nil || u.Fragment != "" {
 			return fmt.Errorf("invalid update URL")
 		}
-		ip := net.ParseIP(u.Hostname())
-		loopback := u.Hostname() == "localhost" || (ip != nil && ip.IsLoopback())
-		if u.Scheme != "https" && !(u.Scheme == "http" && loopback) {
+		if u.Scheme != "https" && !(u.Scheme == "http" && isLoopback(u.Hostname())) {
 			return fmt.Errorf("update URLs must use HTTPS")
+		}
+	}
+	return nil
+}
+
+func isLoopback(host string) bool {
+	ip := net.ParseIP(host)
+	return host == "localhost" || (ip != nil && ip.IsLoopback())
+}
+
+// validateSource limits production downloads to the versioned assets in the
+// AMiR VPN repository. Local update tests can supply paths on their own origin.
+func (m *Manager) validateSource(v string, source Source) error {
+	if err := source.validate(); err != nil {
+		return err
+	}
+	if m.baseURL == releasesURL {
+		if source != m.defaultSource(v) {
+			return fmt.Errorf("updates must use assets from Amir3M/POL for version %s", v)
+		}
+		return nil
+	}
+	server, _ := url.Parse(m.baseURL)
+	for _, raw := range []string{source.URL, source.ChecksumsURL, source.SignatureURL} {
+		u, _ := url.Parse(raw)
+		if u.Scheme != server.Scheme || u.Host != server.Host {
+			return fmt.Errorf("test update URLs must use the configured local server")
 		}
 	}
 	return nil

@@ -12,24 +12,12 @@ export 'update_manifest.dart';
 /// "0.0.0" is a development build.
 const appVersion = String.fromEnvironment('APP_VERSION', defaultValue: '0.0.0');
 
-/// The GitHub repository, "owner/name", for the source link and the update
-/// check.
-const githubRepo = 'armanlife/arman-vpn-client';
+/// The source of AMiR VPN's stable release and platform downloads.
+const githubRepo = 'Amir3M/POL';
 
-/// The update manifest and its mirror. A build may name others
-/// (--dart-define=UPDATE_MANIFEST_URL=..., UPDATE_MANIFEST_MIRROR=...) to
-/// show a manifest that is not published yet on a device, without touching
-/// the one every installed app reads.
-const updateManifestUrl = String.fromEnvironment(
-  'UPDATE_MANIFEST_URL',
-  defaultValue:
-      'https://raw.githubusercontent.com/arman-org/update-manifests/main/arman-vpn-client/updates.json',
-);
-const updateManifestMirror = String.fromEnvironment(
-  'UPDATE_MANIFEST_MIRROR',
-  defaultValue:
-      'https://cdn.jsdelivr.net/gh/arman-org/update-manifests@main/arman-vpn-client/updates.json',
-);
+/// Optional update manifest overrides for local development.
+const updateManifestUrl = String.fromEnvironment('UPDATE_MANIFEST_URL');
+const updateManifestMirror = String.fromEnvironment('UPDATE_MANIFEST_MIRROR');
 
 /// A release server used instead of GitHub, to try updates with a local
 /// test release: it serves [updatesFile] at `<server>/updates.json`, answers
@@ -61,11 +49,8 @@ String? releaseFilePart(String os) => switch (os) {
 /// The manifest filename, also served by the local update test server.
 const updatesFile = 'updates.json';
 
-/// Reads the platform's update manifest, its jsDelivr mirror, then the
-/// latest GitHub release if neither supplies usable desktop metadata.
-/// Android uses stable for scheduled checks and latest for manual
-/// checks; unavailable Android metadata is retried without bypassing it.
-/// Legacy version-only files remain supported for transition releases.
+/// Checks AMiR VPN's latest stable GitHub release for the current platform.
+/// A development server or explicit manifest uses the legacy test path.
 /// null when [current] is the newest, or when there is no release yet; an
 /// error while the named release is not published yet, so the next look
 /// comes soon. [proxy] ("host:port"), when set, carries the requests (the
@@ -90,19 +75,24 @@ Future<Release?> checkForUpdate({
         proxy == null || srv.isNotEmpty ? 'DIRECT' : 'PROXY $proxy; DIRECT';
   try {
     final system = os ?? Platform.operatingSystem;
+    final manifest =
+        manifestUrl ??
+        (srv.isNotEmpty ? '$srv/$updatesFile' : updateManifestUrl);
+    final mirror = updatesMirror ??
+        (srv.isEmpty && manifestUrl == null ? updateManifestMirror : '');
+    if (manifest.isEmpty && mirror.isEmpty && srv.isEmpty) {
+      return await _latestAmirRelease(client, current, system);
+    }
     var metadata = await _updateMetadata(
       client,
-      manifestUrl ?? (srv.isEmpty ? updateManifestUrl : '$srv/$updatesFile'),
+      manifest,
       system,
       srv,
       repo,
       check,
       current,
     );
-    final mirror =
-        updatesMirror ??
-        (srv.isEmpty && manifestUrl == null ? updateManifestMirror : null);
-    if (metadata == null && mirror != null) {
+    if (metadata == null && mirror.isNotEmpty) {
       metadata = await _updateMetadata(
         client,
         mirror,
@@ -145,6 +135,123 @@ Future<Release?> checkForUpdate({
   } finally {
     client.close(force: true);
   }
+}
+
+const _amirFiles = {
+  'android': {'universal': 'amir-vpn-android.apk'},
+  'windows': {
+    'installer-x64': 'amir-vpn-windows-setup-x64.exe',
+    'archive-x64': 'amir-vpn-windows-x64.zip',
+  },
+  'linux': {'amd64': 'amir-vpn-linux-x64.tar.gz'},
+};
+const _amirChecksums = 'SHA256SUMS.txt';
+
+String _amirReleasePage(String version) =>
+    'https://github.com/$githubRepo/releases/tag/v$version';
+
+String _amirAssetUrl(String version, String file) =>
+    'https://github.com/$githubRepo/releases/download/v$version/$file';
+
+bool isAmirDownload(
+  Release? release, {
+  String? os,
+  String? platformVersion,
+}) {
+  final system = os ?? Platform.operatingSystem;
+  final files = _amirFiles[system];
+  final archive = archiveKey(system, platformVersion ?? Platform.version);
+  if (files == null ||
+      !files.containsKey(archive) ||
+      release == null ||
+      !release.browserDownloadOnly ||
+      !validUpdateVersion(release.version) ||
+      release.downloads.length != files.length) {
+    return false;
+  }
+  final version = release.version;
+  return release.url == _amirReleasePage(version) &&
+      release.checksumsUrl == _amirAssetUrl(version, _amirChecksums) &&
+      release.downloads.entries.every(
+        (asset) =>
+            files[asset.key] == asset.value.file &&
+            asset.value.url == _amirAssetUrl(version, asset.value.file),
+      );
+}
+
+Future<Release?> _latestAmirRelease(
+  HttpClient client,
+  String current,
+  String os,
+) async {
+  if (!_amirFiles.containsKey(os)) return null;
+  final (status, body) = await _get(
+    client,
+    'https://api.github.com/repos/$githubRepo/releases/latest',
+    accept: 'application/vnd.github+json',
+  );
+  if (status == 404) return null;
+  if (status != 200) throw HttpException('HTTP $status');
+  return amirReleaseFromGitHub(
+    jsonDecode(body),
+    os: os,
+    current: current,
+    platformVersion: Platform.version,
+  );
+}
+
+/// Parses only a stable release from AMiR VPN, with direct GitHub asset URLs
+/// for the running platform. Drafts and prereleases are never offered.
+Release? amirReleaseFromGitHub(
+  Object? value, {
+  required String os,
+  required String current,
+  String platformVersion = '',
+}) {
+  if (value is! Map<String, Object?>) {
+    throw const FormatException('Invalid GitHub release');
+  }
+  if (value['draft'] != false || value['prerelease'] != false) return null;
+  final tag = value['tag_name'];
+  if (tag is! String || !tag.startsWith('v')) return null;
+  final version = tag.substring(1);
+  if (!validUpdateVersion(version) || !newerVersion(version, current)) {
+    return null;
+  }
+  final files = _amirFiles[os];
+  if (files == null || !files.containsKey(archiveKey(os, platformVersion))) {
+    return null;
+  }
+  final page = _amirReleasePage(version);
+  final assets = value['assets'];
+  if (value['html_url'] != page || assets is! List) {
+    throw const FormatException('Invalid AMiR VPN release');
+  }
+  final downloads = {
+    for (final asset in assets)
+      if (asset is Map<String, Object?> &&
+          asset['state'] == 'uploaded' &&
+          asset['size'] is int &&
+          (asset['size']! as int) > 0 &&
+          asset['name'] is String &&
+          asset['browser_download_url'] ==
+              _amirAssetUrl(version, asset['name']! as String))
+        asset['name']! as String: asset['browser_download_url']! as String,
+  };
+  if (!downloads.containsKey(_amirChecksums) ||
+      !files.values.every(downloads.containsKey)) {
+    throw const FormatException('No AMiR VPN update package for this system');
+  }
+  return Release(
+    version,
+    page,
+    checksumsUrl: downloads[_amirChecksums]!,
+    downloads: Map.unmodifiable({
+      for (final file in files.entries)
+        file.key: ReleaseDownload(file.value, downloads[file.value]!),
+    }),
+    browserDownloadOnly: true,
+  );
 }
 
 /// [os]'s version in [updates], the decoded [updatesFile]:
@@ -289,7 +396,7 @@ Future<bool> _published(HttpClient client, String url) async {
       .timeout(const Duration(seconds: 20));
   req
     ..followRedirects = false
-    ..headers.set(HttpHeaders.userAgentHeader, 'arman-vpn/$appVersion');
+    ..headers.set(HttpHeaders.userAgentHeader, 'amir-vpn/$appVersion');
   final res = await req.close().timeout(const Duration(seconds: 20));
   await res.drain<void>();
   if (res.statusCode == 404) return false;
@@ -312,7 +419,7 @@ Future<(int, String)> _get(
       .timeout(const Duration(seconds: 20));
   req.headers
     ..set(HttpHeaders.acceptHeader, accept)
-    ..set(HttpHeaders.userAgentHeader, 'arman-vpn/$appVersion');
+    ..set(HttpHeaders.userAgentHeader, 'amir-vpn/$appVersion');
   final res = await req.close().timeout(const Duration(seconds: 20));
   final bytes = BytesBuilder(copy: false);
   await for (final chunk in res.timeout(const Duration(seconds: 20))) {

@@ -4,8 +4,38 @@ on:
     branches: [codex/pol-arman-visual-fork]
 permissions:
   contents: read
+concurrency:
+  group: amir-vpn-stable-release
+  cancel-in-progress: false
 jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      build: ${{ steps.release.outputs.build }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Select a new stable version
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(sed -nE 's/^version: ([0-9]+\.[0-9]+\.[0-9]+)\+[0-9]+$/\1/p' app/pubspec.yaml)"
+          test -n "$version"
+          tag="v$version"
+          tags="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name')"
+          latest="$(printf '%s\n' "$tags" | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/' | sort -V | tail -n 1)"
+          if [[ "$tag" == "$latest" ]] || [[ -n "$latest" && "$(printf '%s\n' "$tag" "$latest" | sort -V | tail -n 1)" != "$tag" ]]; then
+            echo "Stable release $latest already covers $tag."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+          fi
   android:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
     runs-on: ubuntu-24.04
     env:
       GOMOBILE_VERSION: v0.0.0-20260908204917-8b95e45f8d3e
@@ -99,6 +129,8 @@ jobs:
           path: out/
           if-no-files-found: error
   windows:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v7
@@ -128,6 +160,8 @@ jobs:
           path: out/
           if-no-files-found: error
   linux:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7
@@ -156,7 +190,7 @@ jobs:
           path: out/
           if-no-files-found: error
   publish:
-    needs: [android, windows, linux]
+    needs: [plan, android, windows, linux]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -168,16 +202,43 @@ jobs:
           path: release
       - name: Verify and checksum release files
         working-directory: release
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
           sha256sum --check amir-vpn-android.apk.sha256
+          printf '# Arman VPN version: %s\n' "$VERSION" > SHA256SUMS.txt
           sha256sum amir-vpn-android.apk amir-vpn-windows-x64.zip \
             amir-vpn-windows-setup-x64.exe amir-vpn-linux-x64.tar.gz \
-            pol-vpn-source.tar.gz pol-vpn-notices.tar.gz > SHA256SUMS.txt
-      - name: Publish prerelease
+            pol-vpn-source.tar.gz pol-vpn-notices.tar.gz >> SHA256SUMS.txt
+      - name: Publish the stable release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
-          tag="amir-vpn-1.0.19-$(printf '%.12s' "$GITHUB_SHA")"
+          tag="v$VERSION"
+          existing_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$tag" \
+            --jq ".[] | select(.ref == \"refs/tags/$tag\") | .ref")"
+          if [[ -z "$existing_ref" ]]; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f "ref=refs/tags/$tag" -f "sha=$GITHUB_SHA" --silent
+          fi
+          target="$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq '.sha')"
+          if [[ "$target" != "$GITHUB_SHA" ]]; then
+            echo "::error::Tag $tag refers to a different commit."
+            exit 1
+          fi
           gh release create "$tag" release/* --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" --prerelease --title 'AMiR VPN' \
-            --notes 'Independent Android, Windows x64 and Linux x64 builds based on the public source of Arman VPN v1.0.19 and distributed under GPL-3.0. Corresponding source, notices and checksums are attached. Live service connectivity is unverified.'
+            --verify-tag --latest --title "AMiR VPN $VERSION" \
+            --notes 'Stable Android, Windows x64, and Linux x64 builds based on the public source of Arman VPN, distributed under GPL-3.0. Source, notices, and checksums accompany the downloads. Live service connectivity is unverified.'
+      - name: Verify latest stable release and assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          expected="$(cd release && printf '%s\n' * | jq -R . | jq -s sort)"
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" | jq -e \
+            --arg tag "v$VERSION" --argjson expected "$expected" '
+              .tag_name == $tag and .draft == false and .prerelease == false
+              and ([.assets[].name] | sort) == $expected
+              and all(.assets[]; .state == "uploaded" and .size > 0)
+            '

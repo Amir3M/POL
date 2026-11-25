@@ -37,6 +37,7 @@ class Release {
     this.checksumsUrl = '',
     this.signatureUrl = '',
     this.downloads = const {},
+    this.browserDownloadOnly = false,
   });
 
   final String version;
@@ -45,11 +46,13 @@ class Release {
   final String checksumsUrl;
   final String signatureUrl;
   final Map<String, ReleaseDownload> downloads;
+  final bool browserDownloadOnly;
 
   Map<String, Object?> toJson() => {
     'version': version,
     'release_url': url,
     'mandatory': mandatory,
+    if (browserDownloadOnly) 'browser_download_only': true,
     if (downloads.isNotEmpty) ...{
       'checksums_url': checksumsUrl,
       'signature_url': signatureUrl,
@@ -60,6 +63,9 @@ class Release {
   /// The desktop updater always unpacks an archive, including installed
   /// Windows copies; the manual Download button may offer its installer.
   Map<String, Object?>? installSource({String? os, String? platformVersion}) {
+    if (browserDownloadOnly) {
+      throw const FormatException('Open this update in the browser');
+    }
     if (downloads.isEmpty) return null;
     final key = archiveKey(
       os ?? Platform.operatingSystem,
@@ -178,16 +184,20 @@ Release? releaseFromJson(Object? value) {
   if (value is! Map<String, Object?> ||
       !validUpdateVersion(value['version']) ||
       !validUpdateUrl(value['release_url']) ||
-      (value['mandatory'] != null && value['mandatory'] is! bool)) {
+      (value['mandatory'] != null && value['mandatory'] is! bool) ||
+      (value['browser_download_only'] != null &&
+          value['browser_download_only'] is! bool)) {
     return null;
   }
+  final browserDownloadOnly = value['browser_download_only'] == true;
   final assets = value['downloads'];
+  if (browserDownloadOnly && assets == null) return null;
   final downloads = <String, ReleaseDownload>{};
   if (assets != null) {
     if (assets is! Map<String, Object?> ||
         assets.isEmpty ||
         !validUpdateUrl(value['checksums_url']) ||
-        !validUpdateUrl(value['signature_url'])) {
+        (!browserDownloadOnly && !validUpdateUrl(value['signature_url']))) {
       return null;
     }
     for (final entry in assets.entries) {
@@ -210,8 +220,11 @@ Release? releaseFromJson(Object? value) {
     value['release_url']! as String,
     mandatory: value['mandatory'] == true,
     checksumsUrl: downloads.isEmpty ? '' : value['checksums_url']! as String,
-    signatureUrl: downloads.isEmpty ? '' : value['signature_url']! as String,
+    signatureUrl: downloads.isEmpty || browserDownloadOnly
+        ? ''
+        : value['signature_url']! as String,
     downloads: Map.unmodifiable(downloads),
+    browserDownloadOnly: browserDownloadOnly,
   );
 }
 

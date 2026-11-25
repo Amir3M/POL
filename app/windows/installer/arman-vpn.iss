@@ -37,7 +37,7 @@ AppVerName={#AppName} {#AppVersion}
 AppPublisher=AMiR VPN
 AppPublisherURL=https://github.com/Amir3M/POL
 AppSupportURL=https://github.com/Amir3M/POL/issues
-AppUpdatesURL=https://github.com/armanlife/arman-vpn-client/releases
+AppUpdatesURL=https://github.com/Amir3M/POL/releases/latest
 VersionInfoVersion={#AppVersion}
 DefaultDirName={code:DefaultDir}
 ; The folder is asked on the first install only; an update goes where the

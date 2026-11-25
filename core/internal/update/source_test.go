@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -40,6 +41,7 @@ func TestManifestDownloadUsesExactURLsAndSurvivesRestart(t *testing.T) {
 		return []http.RoundTripper{server.Client().Transport}
 	}}
 	m := New(opts)
+	m.baseURL = server.URL + "/releases/download/"
 	if err := m.DownloadFrom(r.version, source); err != nil {
 		t.Fatal(err)
 	}
@@ -142,5 +144,35 @@ func TestManifestSourceRejectsUnsafeURLsAndPaths(t *testing.T) {
 		if source.validate() == nil {
 			t.Errorf("accepted file %q", name)
 		}
+	}
+}
+
+func TestProductionUpdatesUseOwnVersionedRelease(t *testing.T) {
+	t.Setenv(ServerEnv, "https://unrelated.example")
+	m := New(Options{DataDir: t.TempDir(), Current: "1.0.0"})
+	v := "1.1.0"
+	want := "https://github.com/Amir3M/POL/releases/download/v1.1.0/"
+	source := m.defaultSource(v)
+	if source.URL != want+source.File || source.ChecksumsURL != want+SumsFile ||
+		source.SignatureURL != want+SigFile {
+		t.Fatalf("wrong download origin: %+v", source)
+	}
+	if runtime.GOOS == "windows" && source.File != "amir-vpn-windows-x64.zip" {
+		t.Fatalf("wrong Windows asset: %s", source.File)
+	}
+	if runtime.GOOS == "linux" && runtime.GOARCH == "amd64" && source.File != "amir-vpn-linux-x64.tar.gz" {
+		t.Fatalf("wrong Linux asset: %s", source.File)
+	}
+	if err := m.validateSource(v, source); err != nil {
+		t.Fatal(err)
+	}
+	source.URL = "https://github.com/armanlife/arman-vpn-client/releases/download/v1.1.0/" + source.File
+	if err := m.DownloadFrom(v, source); err == nil {
+		t.Fatal("accepted upstream release")
+	}
+	source = m.defaultSource(v)
+	source.SignatureURL = strings.Replace(source.SignatureURL, "/v1.1.0/", "/v1.0.1/", 1)
+	if err := m.DownloadFrom(v, source); err == nil {
+		t.Fatal("accepted signature from the wrong release")
 	}
 }

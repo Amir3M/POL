@@ -257,7 +257,7 @@ class _UpdateAction extends StatelessWidget {
               label: Text(label),
             ),
           );
-      if (update == null) {
+      if (update == null || release.browserDownloadOnly) {
         return release.url.isEmpty
             ? const SizedBox.shrink()
             : button(
