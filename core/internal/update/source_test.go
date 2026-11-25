@@ -24,7 +24,7 @@ func TestManifestDownloadUsesExactURLsAndSurvivesRestart(t *testing.T) {
 	delete(r.files, AssetName(r.version))
 	signVersion(r, r.version)
 	var paths []string
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		paths = append(paths, req.URL.RequestURI())
 		file := map[string]string{"/metadata/checksums": SumsFile, "/metadata/signature": SigFile, "/fetch": name}[req.URL.Path]
 		if file == "" {
@@ -36,9 +36,7 @@ func TestManifestDownloadUsesExactURLsAndSurvivesRestart(t *testing.T) {
 	defer server.Close()
 	source := Source{name, server.URL + "/fetch?arch=x64", server.URL + "/metadata/checksums", server.URL + "/metadata/signature"}
 	appDir, dataDir := appFolder(t, "1.0.0", true)
-	opts := Options{DataDir: dataDir, AppDir: appDir, Current: "1.0.0", Transports: func() []http.RoundTripper {
-		return []http.RoundTripper{server.Client().Transport}
-	}}
+	opts := Options{DataDir: dataDir, AppDir: appDir, Current: "1.0.0"}
 	t.Setenv(ServerEnv, server.URL)
 	m := New(opts)
 	if err := m.DownloadFrom(r.version, source); err != nil {
