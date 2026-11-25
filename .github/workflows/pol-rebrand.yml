@@ -171,19 +171,33 @@ jobs:
           cache-dependency-path: core/go.sum
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.50.0
+          # 3.50.1 fixes Linux OpenGL composition without framebuffer blits.
+          flutter-version: 3.50.1
           channel: stable
           cache: true
       - name: Install desktop build dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq clang cmake ninja-build pkg-config libgtk-3-dev
+          sudo apt-get install -y -qq clang cmake ninja-build pkg-config libgtk-3-dev \
+            xvfb xauth openbox wmctrl xdotool imagemagick python3-pil
       - name: Build Linux client
         run: bash scripts/build-linux.sh
       - name: Name release files
         run: |
           mkdir -p out
           mv dist/*-Linux-amd64.tar.gz out/amir-vpn-linux-x64.tar.gz
+      - name: Check Linux rendering at standard and HiDPI scale
+        run: |
+          for scale in 1 2; do
+            xvfb-run -a -s '-screen 0 1920x1600x24 +extension GLX' \
+              bash scripts/smoke-linux-window.sh out/amir-vpn-linux-x64.tar.gz linux-smoke "$scale"
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: linux-window-smoke
+          path: linux-smoke/
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v7
         with:
           name: amir-vpn-linux
@@ -229,7 +243,7 @@ jobs:
           fi
           gh release create "$tag" release/* --repo "$GITHUB_REPOSITORY" \
             --verify-tag --latest --title "AMiR VPN $VERSION" \
-            --notes 'Stable Android, Windows x64, and Linux x64 builds based on the public source of Arman VPN, distributed under GPL-3.0. Source, notices, and checksums accompany the downloads. Live service connectivity is unverified.'
+            --notes 'Stable Android, Windows x64, and Linux x64 builds based on the public source of Arman VPN, distributed under GPL-3.0. Linux uses Flutter 3.50.1 to fix an OpenGL rendering offset that could clip the window. Source, notices, and checksums accompany the downloads. Live service connectivity is unverified.'
       - name: Verify latest stable release and assets
         env:
           GH_TOKEN: ${{ github.token }}
