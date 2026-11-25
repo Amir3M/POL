@@ -156,11 +156,7 @@ class _MobileShellState extends State<MobileShell> {
         ),
         bottomNavigationBar: _themed(
           context,
-          // The dark home page has its own night colors.
-          home:
-              _tab == 0 &&
-              widget.noCore == null &&
-              Theme.of(context).brightness == Brightness.dark,
+          home: _tab == 0 && widget.noCore == null,
           child: NavigationBar(
             selectedIndex: _tab,
             onDestinationSelected: (i) => setState(() => _tab = i),

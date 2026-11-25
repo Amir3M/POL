@@ -10,7 +10,7 @@ class AppLocalizationsRu extends AppLocalizations {
   AppLocalizationsRu([String locale = 'ru']) : super(locale);
 
   @override
-  String get appTitle => 'POL VPN';
+  String get appTitle => 'AMiR VPN';
 
   @override
   String get navOverview => 'Обзор';
@@ -1619,7 +1619,7 @@ class AppLocalizationsRu extends AppLocalizations {
       'Служба TUN новее этого приложения. Обновите приложение, чтобы пользоваться режимом TUN.';
 
   @override
-  String get tunBusy => 'Режимом TUN пользуется другая копия POL VPN.';
+  String get tunBusy => 'Режимом TUN пользуется другая копия AMiR VPN.';
 
   @override
   String get tunNoDriver =>
@@ -1646,10 +1646,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get tunInstallPrompt =>
-      'POL VPN хочет установить службу для режима TUN.';
+      'AMiR VPN хочет установить службу для режима TUN.';
 
   @override
-  String get tunRemovePrompt => 'POL VPN хочет удалить службу режима TUN.';
+  String get tunRemovePrompt => 'AMiR VPN хочет удалить службу режима TUN.';
 
   @override
   String tunRemoveFailed(String error) {

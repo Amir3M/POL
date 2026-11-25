@@ -4,7 +4,7 @@
 #   and core\arman-vpn-tun.exe (the TUN service, which the app or Setup
 #   installs; scripts\build-windows-tun.ps1 says how it is signed), to run
 #   here;
-# - Arman-VPN-<version>-Windows-x64.zip: the portable app, an "Arman VPN"
+# - Arman-VPN-<version>-Windows-x64.zip: the portable app, an "AMiR VPN"
 #   folder to unpack anywhere (or over an older one);
 # - Arman-VPN-<version>-Windows-Setup-x64.exe: the installer
 #   (app\windows\installer\arman-vpn.iss, Inno Setup 6).
@@ -91,7 +91,7 @@ try {
 
 # A clean copy named as the user sees it, for the zip and the installer.
 $stage = "$root\dist\.stage-$version"
-$app = "$stage\Arman VPN"
+$app = "$stage\AMiR VPN"
 Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $app | Out-Null
 Get-ChildItem $out -Force | Where-Object { $_.Name -notin 'user-data', 'portable' } | Copy-Item -Destination $app -Recurse

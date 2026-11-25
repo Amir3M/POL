@@ -10,7 +10,7 @@ class AppLocalizationsVi extends AppLocalizations {
   AppLocalizationsVi([String locale = 'vi']) : super(locale);
 
   @override
-  String get appTitle => 'POL VPN';
+  String get appTitle => 'AMiR VPN';
 
   @override
   String get navOverview => 'Tổng quan';
@@ -1609,7 +1609,7 @@ class AppLocalizationsVi extends AppLocalizations {
       'Dịch vụ TUN mới hơn ứng dụng này. Hãy cập nhật ứng dụng để dùng chế độ TUN.';
 
   @override
-  String get tunBusy => 'Một bản POL VPN khác đang dùng chế độ TUN.';
+  String get tunBusy => 'Một bản AMiR VPN khác đang dùng chế độ TUN.';
 
   @override
   String get tunNoDriver =>
@@ -1636,10 +1636,10 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get tunInstallPrompt =>
-      'POL VPN muốn cài đặt dịch vụ cho chế độ TUN.';
+      'AMiR VPN muốn cài đặt dịch vụ cho chế độ TUN.';
 
   @override
-  String get tunRemovePrompt => 'POL VPN muốn gỡ dịch vụ của chế độ TUN.';
+  String get tunRemovePrompt => 'AMiR VPN muốn gỡ dịch vụ của chế độ TUN.';
 
   @override
   String tunRemoveFailed(String error) {

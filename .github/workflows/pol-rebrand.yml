@@ -1,4 +1,4 @@
-name: POL Android rebrand
+name: AMiR VPN releases
 on:
   push:
     branches: [codex/pol-arman-visual-fork]
@@ -73,7 +73,7 @@ jobs:
           grep -Fx "Signer #1 certificate SHA-256 digest: $SIGNER_SHA256" <<< "$signing"
           badging="$("$build_tools/aapt" dump badging "$apk")"
           grep -F "package: name='com.polvpn.app.debug'" <<< "$badging"
-          grep -Fx "application-label:'POL VPN'" <<< "$badging"
+          grep -Fx "application-label:'AMiR VPN'" <<< "$badging"
           manifest="$("$build_tools/aapt" dump xmltree "$apk" AndroidManifest.xml)"
           grep -F 'android.net.VpnService' <<< "$manifest"
           (cd out && sha256sum pol-vpn-release.apk > pol-vpn-release.apk.sha256)
@@ -86,27 +86,98 @@ jobs:
           git restore --source=HEAD -- ':(glob)app/lib/l10n/app_localizations*.dart' \
             app/android/gradle/wrapper/gradle-wrapper.properties
           bash scripts/package-android-source.sh out/pol-vpn-release.apk
+      - name: Name release files
+        working-directory: out
+        run: |
+          mv pol-vpn-release.apk amir-vpn-android.apk
+          mv pol-vpn-release.apk.sha256 amir-vpn-android.apk.sha256
+          sed -i 's/  pol-vpn-release\.apk$/  amir-vpn-android.apk/' amir-vpn-android.apk.sha256
+          sha256sum --check amir-vpn-android.apk.sha256
       - uses: actions/upload-artifact@v7
         with:
-          name: pol-android-rebrand
+          name: amir-vpn-android
+          path: out/
+          if-no-files-found: error
+  windows:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.50.0
+          channel: stable
+          cache: true
+      - name: Install Inno Setup
+        run: choco upgrade innosetup -y --no-progress
+      - name: Build Windows installer and portable client
+        shell: pwsh
+        run: ./scripts/build-windows.ps1
+      - name: Name release files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory out | Out-Null
+          Move-Item -Path 'dist/*-Windows-x64.zip' -Destination 'out/amir-vpn-windows-x64.zip'
+          Move-Item -Path 'dist/*-Windows-Setup-x64.exe' -Destination 'out/amir-vpn-windows-setup-x64.exe'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: amir-vpn-windows
+          path: out/
+          if-no-files-found: error
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.50.0
+          channel: stable
+          cache: true
+      - name: Install desktop build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang cmake ninja-build pkg-config libgtk-3-dev
+      - name: Build Linux client
+        run: bash scripts/build-linux.sh
+      - name: Name release files
+        run: |
+          mkdir -p out
+          mv dist/*-Linux-amd64.tar.gz out/amir-vpn-linux-x64.tar.gz
+      - uses: actions/upload-artifact@v7
+        with:
+          name: amir-vpn-linux
           path: out/
           if-no-files-found: error
   publish:
-    needs: android
+    needs: [android, windows, linux]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: pol-android-rebrand
+          pattern: amir-vpn-*
+          merge-multiple: true
           path: release
-      - name: Publish signed prerelease
+      - name: Verify and checksum release files
+        working-directory: release
+        run: |
+          sha256sum --check amir-vpn-android.apk.sha256
+          sha256sum amir-vpn-android.apk amir-vpn-windows-x64.zip \
+            amir-vpn-windows-setup-x64.exe amir-vpn-linux-x64.tar.gz \
+            pol-vpn-source.tar.gz pol-vpn-notices.tar.gz > SHA256SUMS.txt
+      - name: Publish prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          (cd release && sha256sum --check pol-vpn-release.apk.sha256)
-          tag="pol-arman-1.0.19-$(printf '%.12s' "$GITHUB_SHA")"
+          tag="amir-vpn-1.0.19-$(printf '%.12s' "$GITHUB_SHA")"
           gh release create "$tag" release/* --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" --prerelease --title 'POL VPN based on Arman VPN 1.0.19' \
-            --notes 'Android rebrand of Arman VPN v1.0.19, distributed under GPL-3.0. Corresponding source, notices and APK checksum are attached. Live connection on a physical phone is pending.'
+            --target "$GITHUB_SHA" --prerelease --title 'AMiR VPN' \
+            --notes 'Independent Android, Windows x64 and Linux x64 builds based on the public source of Arman VPN v1.0.19 and distributed under GPL-3.0. Corresponding source, notices and checksums are attached. Live service connectivity is unverified.'

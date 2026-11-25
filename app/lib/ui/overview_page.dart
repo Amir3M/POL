@@ -39,7 +39,7 @@ class OverviewPage extends StatelessWidget {
   final CoreController core;
   final AppSettings settings;
 
-  /// The phone layout: a colored hero and the data left (_PhoneHome).
+  /// The phone layout: connection controls and data usage (_PhoneHome).
   final bool phone;
 
   /// Opens the server list and the accounts from the home page's cards (a
@@ -303,62 +303,24 @@ class _DesktopHome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = Theme.of(context);
-    final p = base.brightness == Brightness.dark
-        ? _HomePalette.night
-        : _HomePalette.day;
-    final page = DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [p.top, p.bottom],
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -140,
-            left: -120,
-            child: _Glow(
-              color: _accent(p),
-              size: 420,
-              alpha: p.dark ? 0.20 : 0.18,
-            ),
-          ),
-          Positioned(
-            top: 120,
-            right: -160,
-            child: _Glow(
-              color: p.second,
-              size: 360,
-              alpha: p.dark ? 0.12 : 0.15,
-            ),
-          ),
-          Positioned(
-            bottom: -120,
-            left: 40,
-            child: _Glow(
-              color: p.third,
-              size: 320,
-              alpha: p.dark ? 0.10 : 0.10,
-            ),
-          ),
-          Positioned.fill(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 640),
-                  child: _content(context, p),
-                ),
+    const p = _HomePalette.brand;
+    return Theme(
+      data: midnightTheme(Theme.of(context)),
+      child: DecoratedBox(
+        decoration: amirHomeBackground,
+        child: Builder(
+          builder: (context) => SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 640),
+                child: _content(context, p),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
-    return p.dark ? Theme(data: midnightTheme(base), child: page) : page;
   }
 
   bool get _running => status.state.phase == Phase.running;
@@ -447,6 +409,7 @@ class _DesktopHome extends StatelessWidget {
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w800,
             color: on ? accent : p.text,
+            shadows: const [Shadow(color: Colors.black87, blurRadius: 5)],
           ),
         ),
         const SizedBox(height: 8),
@@ -968,9 +931,6 @@ class _PlaceCard extends StatelessWidget {
 
 class _HomePalette {
   const _HomePalette({
-    required this.dark,
-    required this.top,
-    required this.bottom,
     required this.text,
     required this.muted,
     required this.card,
@@ -979,15 +939,10 @@ class _HomePalette {
     required this.connected,
     required this.busy,
     required this.error,
-    required this.second,
-    required this.third,
     required this.discOff,
     required this.discOffEdge,
   });
 
-  final bool dark;
-  final Color top;
-  final Color bottom;
   final Color text;
   final Color muted;
   final Color card;
@@ -996,54 +951,24 @@ class _HomePalette {
   final Color connected;
   final Color busy;
   final Color error;
-
-  /// Colors of the background's soft lights, with the state's.
-  final Color second;
-  final Color third;
   final List<Color> discOff;
   final Color discOffEdge;
 
-  static const night = _HomePalette(
-    dark: true,
-    top: Midnight.top,
-    bottom: Midnight.bottom,
+  static const brand = _HomePalette(
     text: Colors.white,
     muted: Midnight.muted,
-    card: Color(0x10FFFFFF),
-    cardBorder: Color(0x14FFFFFF),
+    card: Color(0xE025282A),
+    cardBorder: Color(0x36FFFFFF),
     idle: Midnight.idle,
     connected: Midnight.connected,
     busy: Midnight.busy,
     error: Midnight.error,
-    second: Color(0xFF2EA8FF),
-    third: Color(0xFFB45CFF),
-    discOff: [Color(0xFF262E5A), Color(0xFF161C3C)],
-    discOffEdge: Color(0x1FFFFFFF),
-  );
-
-  static const day = _HomePalette(
-    dark: false,
-    top: Color(0xFFE9EEFF),
-    bottom: Color(0xFFF9FAFF),
-    text: Color(0xFF151A35),
-    muted: Color(0xFF646C92),
-    card: Color(0xD9FFFFFF),
-    cardBorder: Color(0x12202A66),
-    idle: Color(0xFF6A5CF0),
-    connected: Color(0xFF0DB37C),
-    busy: Color(0xFFF08C00),
-    error: Color(0xFFE5484D),
-    second: Color(0xFF38B6FF),
-    third: Color(0xFFFF7EB6),
-    discOff: [Colors.white, Color(0xFFF0F2FF)],
-    discOffEdge: Color(0x336A5CF0),
+    discOff: [Color(0xFF2D3337), Color(0xFF101214)],
+    discOffEdge: Color(0x45FFFFFF),
   );
 }
 
-/// The phone's home: the switch in the middle over soft lights and wavy
-/// contour lines in the state's color, the state under it, then where the
-/// traffic goes and the data used. Light or dark with the app's theme; the
-/// email is on the accounts page.
+/// The phone's home shows connection controls, location, and data usage.
 class _PhoneHome extends StatelessWidget {
   const _PhoneHome({
     required this.core,
@@ -1111,32 +1036,27 @@ class _PhoneHome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = Theme.of(context);
-    final p = base.brightness == Brightness.dark
-        ? _HomePalette.night
-        : _HomePalette.day;
-    final page = AnnotatedRegion<SystemUiOverlayStyle>(
-      value: (p.dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
-          .copyWith(statusBarColor: Colors.transparent),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [p.top, p.bottom],
-          ),
+    return Theme(
+      data: midnightTheme(Theme.of(context)),
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark.copyWith(
+          statusBarColor: Colors.transparent,
         ),
-        child: LayoutBuilder(
-          builder: (context, box) => SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: box.maxHeight),
-              child: IntrinsicHeight(child: _content(context, p, box)),
+        child: DecoratedBox(
+          decoration: amirHomeBackground,
+          child: LayoutBuilder(
+            builder: (context, box) => SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: box.maxHeight),
+                child: IntrinsicHeight(
+                  child: _content(context, _HomePalette.brand, box),
+                ),
+              ),
             ),
           ),
         ),
       ),
     );
-    return p.dark ? Theme(data: midnightTheme(base), child: page) : page;
   }
 
   Widget _content(BuildContext context, _HomePalette p, BoxConstraints box) {
@@ -1216,547 +1136,504 @@ class _PhoneHome extends StatelessWidget {
     final place = homeLocation(l, status, connected: connected);
     final mismatch = exitMismatchText(l, status);
     final top = MediaQuery.paddingOf(context).top;
-    return Stack(
-      children: [
-        // Soft lights in the state's color and two others.
-        Positioned(
-          top: -120,
-          left: -100,
-          child: _Glow(color: accent, size: 360, alpha: p.dark ? 0.22 : 0.20),
-        ),
-        Positioned(
-          top: 160,
-          right: -140,
-          child: _Glow(color: p.second, size: 320, alpha: p.dark ? 0.12 : 0.16),
-        ),
-        Positioned(
-          bottom: -80,
-          left: -60,
-          child: _Glow(color: p.third, size: 300, alpha: p.dark ? 0.10 : 0.12),
-        ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(side, top + 14, side, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+    return Padding(
+      padding: EdgeInsets.fromLTRB(side, top + 14, side, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 12),
+            child: Row(
+              children: [
+                const AppLogo(size: 36),
+                const SizedBox(width: 8),
+                Text(
+                  l.appTitle,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF111314),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          SizedBox(height: short ? 4 : 16),
+          Center(
+            child: _PowerOrb(
+              palette: p,
+              scale: short ? 0.68 : 1,
+              // A TV starts on the switch, its ring showing.
+              autofocus: Platform.isAndroid && AndroidCore.isTv,
+              on: on,
+              accent: accent,
+              busy: core.switchingProxy,
+              connecting: connecting,
+              tooltip: press,
+              // No account yet: the accounts page, which explains
+              // them and links to Mozilla's sign-up.
+              onPressed: () => status.totalAccounts == 0
+                  ? _openAccounts(context, core, settings, onOpenAccounts)
+                  : runShowingErrors(context, () => _toggle(on)),
+            ),
+          ),
+          SizedBox(height: short ? 8 : 14),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: on ? accent : p.text,
+              shadows: const [Shadow(color: Colors.black87, blurRadius: 5)],
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (connected)
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _HomeDelay(core: core, palette: p),
+                if (ip.isNotEmpty)
+                  _HomePill(
+                    palette: p,
+                    child: Text(
+                      '${l.publicIp} ${ltr(ip)}',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: p.muted,
+                      ),
+                    ),
+                  ),
+                if (status.upstreamProxy.isNotEmpty)
+                  _UpstreamProxyPill(
+                    address: status.upstreamProxy,
+                    palette: p,
+                    onPressed: onOpenUpstreamProxy,
+                  ),
+              ],
+            )
+          else if (failing || noNetwork || gaveUp)
+            // Not connecting stands out from the ordinary hints.
+            problem(
+              _ProblemBox(
+                text: noNetwork
+                    ? l.noNetwork
+                    : failure != null
+                    ? failure.text
+                    : failureCodeText(l, status.connectFailure),
+                color: p.error,
+                icon: Icons.error_outline_rounded,
+                tooltip: noNetwork ? '' : failure?.detail ?? '',
+              ),
+            )
+          else
+            // A start failure's hint is general; the core's reason is
+            // on a long press.
+            Tooltip(
+              message:
+                  !status.connectPending &&
+                      status.state.phase == Phase.error
+                  ? status.state.message
+                  : '',
+              child: Text(
+                look.hint.isNotEmpty ? look.hint : press,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(color: p.muted),
+              ),
+            ),
+          // Where to find the proxy, on a line of its own under the delay.
+          if (connected && proxyOnly && proxy != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Center(
+                child: _HomePill(
+                  palette: p,
+                  child: Text(
+                    '${l.modeProxyOnly} ${ltr('127.0.0.1:${portOf(proxy.listen) ?? 10810}')}',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: p.muted,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (failure?.code == Failure.unreachable &&
+              onOpenConnection != null)
+            _ConnectionSettingsButton(onPressed: onOpenConnection!),
+          if (failure?.code == Failure.upstreamProxy &&
+              onOpenUpstreamProxy != null)
+            _ConnectionSettingsButton(
+              onPressed: onOpenUpstreamProxy!,
+              label: AppLocalizations.of(context).upstreamProxy,
+            ),
+          if (!connected &&
+              status.upstreamProxy.isNotEmpty &&
+              failure?.code != Failure.upstreamProxy)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Center(
+                child: _UpstreamProxyPill(
+                  address: status.upstreamProxy,
+                  palette: p,
+                  onPressed: onOpenUpstreamProxy,
+                ),
+              ),
+            ),
+          if (isLocationRefused(failure?.code ?? '') ||
+              (gaveUp && isLocationRefused(status.connectFailure)))
+            _RecommendedLocationButton(core: core),
+          if (connected && mismatch != null)
+            problem(_ExitMismatchNote(text: mismatch)),
+          if (canSwitch &&
+              status.systemProxySet &&
+              status.systemProxyTakenBy != null)
+            problem(
+              _SystemProxyTakenNote(
+                core: core,
+                by: status.systemProxyTakenBy!,
+              ),
+            ),
+          if (status.state.proxyPortBlocked) ...[
+            const SizedBox(height: 12),
+            Center(
+              child: FilledButton.tonalIcon(
+                onPressed: () async {
+                  final port = await showPortDialog(
+                    context,
+                    taken: status.state.address,
+                  );
+                  if (port != null && context.mounted) {
+                    await runShowingErrors(
+                      context,
+                      () => core.setProxyPort(port),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.settings_ethernet_rounded),
+                label: Text(l.changePort),
+              ),
+            ),
+          ],
+          if (running &&
+              proxy != null &&
+              !canSwitch &&
+              sharedWithLan(proxy.listen)) ...[
+            const SizedBox(height: 10),
+            Center(child: _LanChip(port: portOf(proxy.listen) ?? 10810)),
+          ],
+          const Spacer(),
+          if (settings.showAppModeSwitch && Platform.isAndroid) ...[
+            ListenableBuilder(
+              listenable: Listenable.merge([
+                AndroidCore.mode,
+                AndroidCore.appRoutingMode,
+                AndroidCore.selectedAppsCount,
+              ]),
+              builder: (context, _) {
+                final mode = AndroidCore.mode.value;
+                final routing = AndroidCore.appRoutingMode.value;
+                final selected = mode == 'proxy' ? 'proxy' : routing;
+                final port = portOf(proxy?.listen ?? '') ??
+                    portOf(status.state.address) ??
+                    10810;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Center(
+                      child: _ModeSwitch(
+                        palette: p,
+                        accent: accent,
+                        selected: selected,
+                        onSelected: core.switchingProxy
+                            ? null
+                            : (newMode) async {
+                                if (newMode == 'proxy') {
+                                  await runShowingErrors(
+                                    context,
+                                    () => AndroidCore.setMode('proxy'),
+                                  );
+                                } else if (newMode == 'selected') {
+                                  if (AndroidCore.mode.value != 'vpn') {
+                                    await runShowingErrors(
+                                      context,
+                                      () => AndroidCore.setMode('vpn'),
+                                    );
+                                  }
+                                  await AndroidCore.setRoutingEnabled(true);
+                                  AndroidCore.appRoutingMode.value =
+                                      'selected';
+                                  try {
+                                    final r =
+                                        await AndroidCore.appRouting();
+                                    AndroidCore.selectedAppsCount.value =
+                                        r.chosenCount;
+                                  } catch (_) {}
+                                } else if (newMode == 'all') {
+                                  if (AndroidCore.mode.value != 'vpn') {
+                                    await runShowingErrors(
+                                      context,
+                                      () => AndroidCore.setMode('vpn'),
+                                    );
+                                  }
+                                  await AndroidCore.setRoutingEnabled(
+                                    false,
+                                  );
+                                  AndroidCore.appRoutingMode.value = 'all';
+                                }
+                              },
+                        onTapSelected: (modeValue) {
+                          if (modeValue == 'proxy') {
+                            _openPortSettings(context, status);
+                          } else if (modeValue == 'all') {
+                            _openAllAppsSettings();
+                          }
+                        },
+                        modes: [
+                          (
+                            value: 'all',
+                            icon: Icons.public_rounded,
+                            label: l.modeAllApps,
+                            tooltip: l.modeAllAppsHint,
+                          ),
+                          (
+                            value: 'selected',
+                            icon: Icons.apps_rounded,
+                            label: l.modeSelectedApps,
+                            tooltip: l.modeSelectedAppsHint,
+                          ),
+                          (
+                            value: 'proxy',
+                            icon: Icons.settings_ethernet_rounded,
+                            label: l.modeProxy,
+                            tooltip: '${l.proxyPort}: $port',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (selected == 'proxy')
+                      Center(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () => _openPortSettings(context, status),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
+                            ),
+                            decoration: ShapeDecoration(
+                              color: p.card,
+                              shape: StadiumBorder(
+                                side: BorderSide(color: p.cardBorder),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.tune_rounded,
+                                  size: 14,
+                                  color: accent,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${l.proxyPort}: $port',
+                                  style:
+                                      theme.textTheme.bodySmall?.copyWith(
+                                    color: p.text,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Icon(
+                                  Icons.edit_outlined,
+                                  size: 13,
+                                  color: p.muted,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    else if (selected == 'selected')
+                      Center(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () => _openBypassApps(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
+                            ),
+                            decoration: ShapeDecoration(
+                              color: p.card,
+                              shape: StadiumBorder(
+                                side: BorderSide(color: p.cardBorder),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.apps_rounded,
+                                  size: 14,
+                                  color: accent,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  l.selectedAppsCount(
+                                    '${AndroidCore.selectedAppsCount.value}',
+                                  ),
+                                  style:
+                                      theme.textTheme.bodySmall?.copyWith(
+                                    color: p.text,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.chevron_left_rounded,
+                                  size: 16,
+                                  color: p.muted,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Center(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: _openAllAppsSettings,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            child: Text(
+                              l.allTrafficThroughVpn,
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: p.muted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ] else if (settings.showAppModeSwitch &&
+              (status.systemProxySupported || status.tunSupported)) ...[
+            Center(
+              child: _ModeSwitch(
+                palette: p,
+                accent: accent,
+                selected: connectionModeShown(status),
+                onSelected: core.switchingProxy || core.installingTun
+                    ? null
+                    : (mode) => chooseConnectionMode(context, core, mode),
+                modes: [
+                  (
+                    value: 'clear',
+                    icon: Icons.settings_ethernet_rounded,
+                    label: l.modeProxy,
+                    tooltip: running && proxy != null
+                        ? '${l.proxyServiceActive} · ${proxy.listen}'
+                        : '',
+                  ),
+                  if (status.systemProxySupported)
+                    (
+                      value: 'set',
+                      icon: Icons.computer_rounded,
+                      label: l.systemProxy,
+                      tooltip: '',
+                    ),
+                  if (status.tunSupported)
+                    (
+                      value: 'tun',
+                      icon: Icons.vpn_lock_rounded,
+                      label: l.modeTun,
+                      tooltip: '',
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              connectionModeHint(
+                l,
+                status,
+                installing: core.installingTun,
+                windows: defaultTargetPlatform == TargetPlatform.windows,
+              ),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(color: p.muted),
+            ),
+            TunNote(
+              core: core,
+              box: (text, tooltip) => _ProblemBox(
+                text: text,
+                color: StatusColors.busy,
+                icon: Icons.warning_amber_rounded,
+                tooltip: tooltip,
+              ),
+            ),
+          ],
+          SizedBox(height: short ? 12 : 20),
+          _UpdateNotice(core: core, settings: settings, palette: p),
+          _UdpNotice(status: status, settings: settings, palette: p),
+          _Notices(notices: homeNotices(status.notices)),
+          _LowQuotaNotice(
+            core: core,
+            status: status,
+            settings: settings,
+            connected: connected,
+            palette: p,
+          ),
+          if (sideBySide)
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const AppLogo(size: 28),
-                  const SizedBox(width: 8),
-                  Text(
-                    l.appTitle,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: p.text,
+                  Expanded(
+                    child: _PlaceCard(
+                      palette: p,
+                      place: place,
+                      accent: accent,
+                      onTap: onOpenServers,
+                      compact: true,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _HomeData(
+                      status: status,
+                      palette: p,
+                      onTap: onOpenAccounts,
+                      compact: true,
                     ),
                   ),
                 ],
               ),
-              const Spacer(),
-              SizedBox(height: short ? 4 : 16),
-              Center(
-                child: _PowerOrb(
-                  palette: p,
-                  scale: short ? 0.68 : 1,
-                  // A TV starts on the switch, its ring showing.
-                  autofocus: Platform.isAndroid && AndroidCore.isTv,
-                  on: on,
-                  accent: accent,
-                  busy: core.switchingProxy,
-                  connecting: connecting,
-                  tooltip: press,
-                  // No account yet: the accounts page, which explains
-                  // them and links to Mozilla's sign-up.
-                  onPressed: () => status.totalAccounts == 0
-                      ? _openAccounts(context, core, settings, onOpenAccounts)
-                      : runShowingErrors(context, () => _toggle(on)),
-                ),
-              ),
-              SizedBox(height: short ? 8 : 14),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: on ? accent : p.text,
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (connected)
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _HomeDelay(core: core, palette: p),
-                    if (ip.isNotEmpty)
-                      _HomePill(
-                        palette: p,
-                        child: Text(
-                          '${l.publicIp} ${ltr(ip)}',
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: p.muted,
-                          ),
-                        ),
-                      ),
-                    if (status.upstreamProxy.isNotEmpty)
-                      _UpstreamProxyPill(
-                        address: status.upstreamProxy,
-                        palette: p,
-                        onPressed: onOpenUpstreamProxy,
-                      ),
-                  ],
-                )
-              else if (failing || noNetwork || gaveUp)
-                // Not connecting stands out from the ordinary hints.
-                problem(
-                  _ProblemBox(
-                    text: noNetwork
-                        ? l.noNetwork
-                        : failure != null
-                        ? failure.text
-                        : failureCodeText(l, status.connectFailure),
-                    color: p.error,
-                    icon: Icons.error_outline_rounded,
-                    tooltip: noNetwork ? '' : failure?.detail ?? '',
-                  ),
-                )
-              else
-                // A start failure's hint is general; the core's reason is
-                // on a long press.
-                Tooltip(
-                  message:
-                      !status.connectPending &&
-                          status.state.phase == Phase.error
-                      ? status.state.message
-                      : '',
-                  child: Text(
-                    look.hint.isNotEmpty ? look.hint : press,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: p.muted),
-                  ),
-                ),
-              // Where to find the proxy, on a line of its own under the delay.
-              if (connected && proxyOnly && proxy != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Center(
-                    child: _HomePill(
-                      palette: p,
-                      child: Text(
-                        '${l.modeProxyOnly} ${ltr('127.0.0.1:${portOf(proxy.listen) ?? 10810}')}',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: p.muted,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              if (failure?.code == Failure.unreachable &&
-                  onOpenConnection != null)
-                _ConnectionSettingsButton(onPressed: onOpenConnection!),
-              if (failure?.code == Failure.upstreamProxy &&
-                  onOpenUpstreamProxy != null)
-                _ConnectionSettingsButton(
-                  onPressed: onOpenUpstreamProxy!,
-                  label: AppLocalizations.of(context).upstreamProxy,
-                ),
-              if (!connected &&
-                  status.upstreamProxy.isNotEmpty &&
-                  failure?.code != Failure.upstreamProxy)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Center(
-                    child: _UpstreamProxyPill(
-                      address: status.upstreamProxy,
-                      palette: p,
-                      onPressed: onOpenUpstreamProxy,
-                    ),
-                  ),
-                ),
-              if (isLocationRefused(failure?.code ?? '') ||
-                  (gaveUp && isLocationRefused(status.connectFailure)))
-                _RecommendedLocationButton(core: core),
-              if (connected && mismatch != null)
-                problem(_ExitMismatchNote(text: mismatch)),
-              if (canSwitch &&
-                  status.systemProxySet &&
-                  status.systemProxyTakenBy != null)
-                problem(
-                  _SystemProxyTakenNote(
-                    core: core,
-                    by: status.systemProxyTakenBy!,
-                  ),
-                ),
-              if (status.state.proxyPortBlocked) ...[
-                const SizedBox(height: 12),
-                Center(
-                  child: FilledButton.tonalIcon(
-                    onPressed: () async {
-                      final port = await showPortDialog(
-                        context,
-                        taken: status.state.address,
-                      );
-                      if (port != null && context.mounted) {
-                        await runShowingErrors(
-                          context,
-                          () => core.setProxyPort(port),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.settings_ethernet_rounded),
-                    label: Text(l.changePort),
-                  ),
-                ),
-              ],
-              if (running &&
-                  proxy != null &&
-                  !canSwitch &&
-                  sharedWithLan(proxy.listen)) ...[
-                const SizedBox(height: 10),
-                Center(child: _LanChip(port: portOf(proxy.listen) ?? 10810)),
-              ],
-              const Spacer(),
-              if (settings.showAppModeSwitch && Platform.isAndroid) ...[
-                ListenableBuilder(
-                  listenable: Listenable.merge([
-                    AndroidCore.mode,
-                    AndroidCore.appRoutingMode,
-                    AndroidCore.selectedAppsCount,
-                  ]),
-                  builder: (context, _) {
-                    final mode = AndroidCore.mode.value;
-                    final routing = AndroidCore.appRoutingMode.value;
-                    final selected = mode == 'proxy' ? 'proxy' : routing;
-                    final port = portOf(proxy?.listen ?? '') ??
-                        portOf(status.state.address) ??
-                        10810;
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Center(
-                          child: _ModeSwitch(
-                            palette: p,
-                            accent: accent,
-                            selected: selected,
-                            onSelected: core.switchingProxy
-                                ? null
-                                : (newMode) async {
-                                    if (newMode == 'proxy') {
-                                      await runShowingErrors(
-                                        context,
-                                        () => AndroidCore.setMode('proxy'),
-                                      );
-                                    } else if (newMode == 'selected') {
-                                      if (AndroidCore.mode.value != 'vpn') {
-                                        await runShowingErrors(
-                                          context,
-                                          () => AndroidCore.setMode('vpn'),
-                                        );
-                                      }
-                                      await AndroidCore.setRoutingEnabled(true);
-                                      AndroidCore.appRoutingMode.value =
-                                          'selected';
-                                      try {
-                                        final r =
-                                            await AndroidCore.appRouting();
-                                        AndroidCore.selectedAppsCount.value =
-                                            r.chosenCount;
-                                      } catch (_) {}
-                                    } else if (newMode == 'all') {
-                                      if (AndroidCore.mode.value != 'vpn') {
-                                        await runShowingErrors(
-                                          context,
-                                          () => AndroidCore.setMode('vpn'),
-                                        );
-                                      }
-                                      await AndroidCore.setRoutingEnabled(
-                                        false,
-                                      );
-                                      AndroidCore.appRoutingMode.value = 'all';
-                                    }
-                                  },
-                            onTapSelected: (modeValue) {
-                              if (modeValue == 'proxy') {
-                                _openPortSettings(context, status);
-                              } else if (modeValue == 'all') {
-                                _openAllAppsSettings();
-                              }
-                            },
-                            modes: [
-                              (
-                                value: 'all',
-                                icon: Icons.public_rounded,
-                                label: l.modeAllApps,
-                                tooltip: l.modeAllAppsHint,
-                              ),
-                              (
-                                value: 'selected',
-                                icon: Icons.apps_rounded,
-                                label: l.modeSelectedApps,
-                                tooltip: l.modeSelectedAppsHint,
-                              ),
-                              (
-                                value: 'proxy',
-                                icon: Icons.settings_ethernet_rounded,
-                                label: l.modeProxy,
-                                tooltip: '${l.proxyPort}: $port',
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        if (selected == 'proxy')
-                          Center(
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(20),
-                              onTap: () => _openPortSettings(context, status),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 6,
-                                ),
-                                decoration: ShapeDecoration(
-                                  color: p.card,
-                                  shape: StadiumBorder(
-                                    side: BorderSide(color: p.cardBorder),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.tune_rounded,
-                                      size: 14,
-                                      color: accent,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '${l.proxyPort}: $port',
-                                      style:
-                                          theme.textTheme.bodySmall?.copyWith(
-                                        color: p.text,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Icon(
-                                      Icons.edit_outlined,
-                                      size: 13,
-                                      color: p.muted,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          )
-                        else if (selected == 'selected')
-                          Center(
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(20),
-                              onTap: () => _openBypassApps(context),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 6,
-                                ),
-                                decoration: ShapeDecoration(
-                                  color: p.card,
-                                  shape: StadiumBorder(
-                                    side: BorderSide(color: p.cardBorder),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.apps_rounded,
-                                      size: 14,
-                                      color: accent,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      l.selectedAppsCount(
-                                        '${AndroidCore.selectedAppsCount.value}',
-                                      ),
-                                      style:
-                                          theme.textTheme.bodySmall?.copyWith(
-                                        color: p.text,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Icon(
-                                      Icons.chevron_left_rounded,
-                                      size: 16,
-                                      color: p.muted,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          )
-                        else
-                          Center(
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(20),
-                              onTap: _openAllAppsSettings,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                child: Text(
-                                  l.allTrafficThroughVpn,
-                                  textAlign: TextAlign.center,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: p.muted,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ] else if (settings.showAppModeSwitch &&
-                  (status.systemProxySupported || status.tunSupported)) ...[
-                Center(
-                  child: _ModeSwitch(
-                    palette: p,
-                    accent: accent,
-                    selected: connectionModeShown(status),
-                    onSelected: core.switchingProxy || core.installingTun
-                        ? null
-                        : (mode) => chooseConnectionMode(context, core, mode),
-                    modes: [
-                      (
-                        value: 'clear',
-                        icon: Icons.settings_ethernet_rounded,
-                        label: l.modeProxy,
-                        tooltip: running && proxy != null
-                            ? '${l.proxyServiceActive} · ${proxy.listen}'
-                            : '',
-                      ),
-                      if (status.systemProxySupported)
-                        (
-                          value: 'set',
-                          icon: Icons.computer_rounded,
-                          label: l.systemProxy,
-                          tooltip: '',
-                        ),
-                      if (status.tunSupported)
-                        (
-                          value: 'tun',
-                          icon: Icons.vpn_lock_rounded,
-                          label: l.modeTun,
-                          tooltip: '',
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  connectionModeHint(
-                    l,
-                    status,
-                    installing: core.installingTun,
-                    windows: defaultTargetPlatform == TargetPlatform.windows,
-                  ),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(color: p.muted),
-                ),
-                TunNote(
-                  core: core,
-                  box: (text, tooltip) => _ProblemBox(
-                    text: text,
-                    color: StatusColors.busy,
-                    icon: Icons.warning_amber_rounded,
-                    tooltip: tooltip,
-                  ),
-                ),
-              ],
-              SizedBox(height: short ? 12 : 20),
-              _UpdateNotice(core: core, settings: settings, palette: p),
-              _UdpNotice(status: status, settings: settings, palette: p),
-              _Notices(notices: homeNotices(status.notices)),
-              _LowQuotaNotice(
-                core: core,
-                status: status,
-                settings: settings,
-                connected: connected,
-                palette: p,
-              ),
-              if (sideBySide)
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: _PlaceCard(
-                          palette: p,
-                          place: place,
-                          accent: accent,
-                          onTap: onOpenServers,
-                          compact: true,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _HomeData(
-                          status: status,
-                          palette: p,
-                          onTap: onOpenAccounts,
-                          compact: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else ...[
-                _PlaceCard(
-                  palette: p,
-                  place: place,
-                  accent: accent,
-                  onTap: onOpenServers,
-                ),
-                const SizedBox(height: 12),
-                _HomeData(status: status, palette: p, onTap: onOpenAccounts),
-              ],
-            ],
-          ),
-        ),
-      ],
+            )
+          else ...[
+            _PlaceCard(
+              palette: p,
+              place: place,
+              accent: accent,
+              onTap: onOpenServers,
+            ),
+            const SizedBox(height: 12),
+            _HomeData(status: status, palette: p, onTap: onOpenAccounts),
+          ],
+        ],
+      ),
     );
   }
-}
-
-/// A soft round light for the background.
-class _Glow extends StatelessWidget {
-  const _Glow({required this.color, required this.size, required this.alpha});
-
-  final Color color;
-  final double size;
-  final double alpha;
-
-  @override
-  Widget build(BuildContext context) => IgnorePointer(
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 600),
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [
-            color.withValues(alpha: alpha),
-            color.withValues(alpha: 0),
-          ],
-        ),
-      ),
-    ),
-  );
 }
 
 /// A frosted card on the home background.
@@ -1781,15 +1658,6 @@ class _HomeCard extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(22),
-      boxShadow: palette.dark
-          ? null
-          : [
-              BoxShadow(
-                color: const Color(0xFF2A3375).withValues(alpha: 0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
     ),
     child: Material(
       color: palette.card,
@@ -1928,7 +1796,7 @@ class _PowerOrb extends StatelessWidget {
                 child: _DriftingContours(
                   drifting: busy || connecting,
                   color: accent,
-                  alpha: p.dark ? 0.16 : 0.22,
+                  alpha: 0.16,
                 ),
               ),
             ),
@@ -1983,8 +1851,7 @@ class _PowerOrb extends StatelessWidget {
                   BoxShadow(
                     color: on
                         ? accent.withValues(alpha: 0.5)
-                        : (p.dark ? Colors.black : const Color(0xFF2A3375))
-                              .withValues(alpha: p.dark ? 0.45 : 0.14),
+                        : Colors.black.withValues(alpha: 0.45),
                     blurRadius: on ? 36 : 26,
                     offset: const Offset(0, 10),
                   ),
@@ -2000,7 +1867,7 @@ class _PowerOrb extends StatelessWidget {
                   child: Icon(
                     Icons.power_settings_new_rounded,
                     size: 58 * scale,
-                    color: on ? Colors.white : (p.dark ? p.muted : p.idle),
+                    color: on ? Colors.white : p.muted,
                   ),
                 ),
               ),
@@ -2727,7 +2594,7 @@ class _UpdateBanner extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: color.withValues(alpha: p.dark ? 0.16 : 0.12),
+        color: color.withValues(alpha: 0.16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
           side: BorderSide(color: color.withValues(alpha: 0.4)),
@@ -2940,7 +2807,7 @@ class _UdpNoticeState extends State<_UdpNotice> {
       return Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Material(
-          color: StatusColors.busy.withValues(alpha: p.dark ? 0.16 : 0.12),
+          color: StatusColors.busy.withValues(alpha: 0.16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
             side: BorderSide(color: StatusColors.busy.withValues(alpha: 0.4)),
@@ -3085,7 +2952,7 @@ class _LowQuotaNoticeState extends State<_LowQuotaNotice> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: StatusColors.busy.withValues(alpha: p.dark ? 0.16 : 0.12),
+        color: StatusColors.busy.withValues(alpha: 0.16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
           side: BorderSide(color: StatusColors.busy.withValues(alpha: 0.4)),

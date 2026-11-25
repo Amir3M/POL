@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the Linux desktop app with its core, for this machine's processor
 # (amd64 or arm64), into dist/Arman-VPN-<version>-Linux-<arch>.tar.gz: a
-# arman-vpn folder with arman-vpn (the Flutter app), core/arman-vpn-core
+# amir-vpn folder with arman-vpn (the Flutter app), core/arman-vpn-core
 # (the Go core, which the app starts with -app), core/arman-vpn-tun (the
 # TUN mode's service, which the app installs as a systemd service the first
 # time the mode is chosen), and Flutter's lib/ and data/. "install.sh
@@ -63,7 +63,7 @@ core_tags=''
 
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
-app="$stage/arman-vpn"
+app="$stage/amir-vpn"
 cp -r "$root/app/build/linux/$flutter_arch/release/bundle" "$app"
 if [ -n "${CORE:-}" ]; then
   install -D -m 0755 "$CORE" "$app/core/arman-vpn-core"
@@ -83,5 +83,5 @@ ln -s arman-vpn-core "$app/core/firefox-vpn-core"
 
 mkdir -p "$root/dist"
 out="$root/dist/Arman-VPN-$version-Linux-$arch.tar.gz"
-tar -czf "$out" -C "$stage" --owner=0 --group=0 arman-vpn
+tar -czf "$out" -C "$stage" --owner=0 --group=0 amir-vpn
 echo "Built $out ($(du -h "$out" | cut -f1))"

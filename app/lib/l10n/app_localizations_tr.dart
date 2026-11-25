@@ -10,7 +10,7 @@ class AppLocalizationsTr extends AppLocalizations {
   AppLocalizationsTr([String locale = 'tr']) : super(locale);
 
   @override
-  String get appTitle => 'POL VPN';
+  String get appTitle => 'AMiR VPN';
 
   @override
   String get navOverview => 'Genel bakış';
@@ -1611,7 +1611,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get tunBusy =>
-      'POL VPN\'in başka bir kopyası TUN modunu kullanıyor.';
+      'AMiR VPN\'in başka bir kopyası TUN modunu kullanıyor.';
 
   @override
   String get tunNoDriver =>
@@ -1638,11 +1638,11 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get tunInstallPrompt =>
-      'POL VPN, TUN modu için hizmeti yüklemek istiyor.';
+      'AMiR VPN, TUN modu için hizmeti yüklemek istiyor.';
 
   @override
   String get tunRemovePrompt =>
-      'POL VPN, TUN modunun hizmetini kaldırmak istiyor.';
+      'AMiR VPN, TUN modunun hizmetini kaldırmak istiyor.';
 
   @override
   String tunRemoveFailed(String error) {

@@ -10,7 +10,7 @@ class AppLocalizationsFa extends AppLocalizations {
   AppLocalizationsFa([String locale = 'fa']) : super(locale);
 
   @override
-  String get appTitle => 'POL VPN';
+  String get appTitle => 'AMiR VPN';
 
   @override
   String get navOverview => 'نمای کلی';
@@ -1596,7 +1596,7 @@ class AppLocalizationsFa extends AppLocalizations {
       'سرویس TUN از این برنامه جدیدتر است. برای استفاده از حالت TUN برنامه را به‌روز کنید.';
 
   @override
-  String get tunBusy => 'حالت TUN را نسخه دیگری از POL VPN استفاده می‌کند.';
+  String get tunBusy => 'حالت TUN را نسخه دیگری از AMiR VPN استفاده می‌کند.';
 
   @override
   String get tunNoDriver =>
@@ -1622,11 +1622,11 @@ class AppLocalizationsFa extends AppLocalizations {
   String get tunServiceRemoved => 'سرویس TUN حذف شد.';
 
   @override
-  String get tunInstallPrompt => 'برای حالت TUN، سرویس POL VPN باید نصب شود.';
+  String get tunInstallPrompt => 'برای حالت TUN، سرویس AMiR VPN باید نصب شود.';
 
   @override
   String get tunRemovePrompt =>
-      'برای حذف حالت TUN، سرویس POL VPN باید حذف شود.';
+      'برای حذف حالت TUN، سرویس AMiR VPN باید حذف شود.';
 
   @override
   String tunRemoveFailed(String error) {

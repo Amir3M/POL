@@ -21,7 +21,16 @@ const firefoxAccountSignUpUrl = 'https://accounts.firefox.com/';
 const firefoxAccountSetPasswordUrl =
     'https://accounts.firefox.com/reset_password/';
 
-/// The rounded POL VPN logo, [size] logical pixels square.
+const amirHomeBackground = BoxDecoration(
+  gradient: LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFFEDF5F9), Colors.black, Colors.black],
+    stops: [0, 0.70, 1],
+  ),
+);
+
+/// The rounded AMiR VPN logo, [size] logical pixels square.
 class AppLogo extends StatelessWidget {
   const AppLogo({super.key, required this.size});
 
@@ -143,15 +152,14 @@ String locationName(AppLocalizations l, String code, String name) =>
     ? l.recommendedLocation
     : countryName(l, code, name);
 
-/// The phone home's colors: a deep navy night and the state's light.
+/// Dark home surface and connection state colors.
 abstract final class Midnight {
-  static const top = Color(0xFF141B3D);
-  static const bottom = Color(0xFF070A18);
+  static const bottom = Color(0xFF0B0D0E);
   static const connected = Color(0xFF10D9A0);
   static const busy = Color(0xFFFFB547);
   static const error = Color(0xFFFF5C7A);
-  static const idle = Color(0xFF7C83FF);
-  static const muted = Color(0xFF9AA3C7);
+  static const idle = Color(0xFFD7E1E7);
+  static const muted = Color(0xFFDAE0E4);
 }
 
 /// A dark theme for the phone's home and its navigation bar, with the
