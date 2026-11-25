@@ -205,7 +205,15 @@ jobs:
         run: |
           gh release download "v$VERSION" -p amir-vpn-linux-x64.tar.gz -p SHA256SUMS.txt -D out
           cd out
-          grep -E '^[0-9a-f]{64}  amir-vpn-linux-x64\.tar\.gz
+          grep -E '^[0-9a-f]{64}  amir-vpn-linux-x64\.tar\.gz$' SHA256SUMS.txt | sha256sum --check -
+      - name: Build and install the Debian package
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          bash scripts/package-linux-deb.sh out/amir-vpn-linux-x64.tar.gz "$VERSION" out/amir-vpn-linux-x64.deb
+          sudo apt-get install -y ./out/amir-vpn-linux-x64.deb
+          test "$(dpkg-query -W -f='${Version}' amir-vpn)" = "$VERSION"
+          desktop-file-validate /usr/share/applications/amir-vpn.desktop
       - name: Check Linux rendering at standard and HiDPI scale
         run: |
           for scale in 1 2; do
@@ -222,31 +230,6 @@ jobs:
         with:
           name: amir-vpn-linux
           path: out/amir-vpn-linux-x64.*
-          if-no-files-found: error SHA256SUMS.txt | sha256sum --check -
-      - name: Build and install the Debian package
-        env:
-          VERSION: ${{ needs.plan.outputs.version }}
-        run: |
-          bash scripts/package-linux-deb.sh out/amir-vpn-linux-x64.tar.gz "$VERSION" out/amir-vpn-linux-x64.deb
-          sudo apt-get install -y ./out/amir-vpn-linux-x64.deb
-          test "$(dpkg-query -W -f='${Version}' amir-vpn)" = "$VERSION"
-          desktop-file-validate /usr/share/applications/amir-vpn.desktop
-      - name: Check Linux rendering at standard and HiDPI scale
-        run: |
-          for scale in 1 2; do
-            xvfb-run -a -s '-screen 0 1920x1600x24 +extension GLX' \
-              bash scripts/smoke-linux-window.sh out/amir-vpn-linux-x64.tar.gz linux-smoke "$scale"
-          done
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: linux-window-smoke
-          path: linux-smoke/
-          if-no-files-found: ignore
-      - uses: actions/upload-artifact@v7
-        with:
-          name: amir-vpn-linux
-          path: out/
           if-no-files-found: error
   publish:
     needs: [plan, android, windows, linux]
