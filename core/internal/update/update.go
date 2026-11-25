@@ -84,17 +84,19 @@ const (
 // app and its core inside it (relative to the app's folder, with "/"), and
 // how the file unpacks.
 type appPackage struct {
-	name      func(v string) string
-	app, core string
-	unpack    func(file, dir string) error
+	name        func(v string) string
+	releaseName string
+	app, core   string
+	unpack      func(file, dir string) error
 }
 
 // windowsPackage is the Windows app's zip.
 var windowsPackage = appPackage{
-	name:   func(v string) string { return "Arman-VPN-" + v + "-Windows-x64.zip" },
-	app:    "arman-vpn.exe",
-	core:   "core/arman-vpn-core.exe",
-	unpack: unzip,
+	name:        func(v string) string { return "Arman-VPN-" + v + "-Windows-x64.zip" },
+	releaseName: "amir-vpn-windows-x64.zip",
+	app:         "arman-vpn.exe",
+	core:        "core/arman-vpn-core.exe",
+	unpack:      unzip,
 }
 
 // thePackage is this system's: the Windows zip, or the Linux or macOS

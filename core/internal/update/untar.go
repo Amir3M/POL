@@ -17,10 +17,18 @@ import (
 // (scripts/build-linux.sh): an arman-vpn folder with the app, its lib/ and
 // data/, and core/.
 var linuxPackage = appPackage{
-	name:   func(v string) string { return "Arman-VPN-" + v + "-Linux-" + runtime.GOARCH + ".tar.gz" },
-	app:    "arman-vpn",
-	core:   "core/arman-vpn-core",
-	unpack: untar,
+	name:        func(v string) string { return "Arman-VPN-" + v + "-Linux-" + runtime.GOARCH + ".tar.gz" },
+	releaseName: linuxReleaseName(),
+	app:         "arman-vpn",
+	core:        "core/arman-vpn-core",
+	unpack:      untar,
+}
+
+func linuxReleaseName() string {
+	if runtime.GOARCH == "amd64" {
+		return "amir-vpn-linux-x64.tar.gz"
+	}
+	return ""
 }
 
 // macPackage is the macOS app's tar.gz (scripts/build-macos.sh): Firefox

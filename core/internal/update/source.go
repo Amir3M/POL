@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
@@ -25,15 +24,8 @@ const versionPrefix = "# Arman VPN version: "
 func (m *Manager) defaultSource(v string) Source {
 	base := m.baseURL + "v" + v + "/"
 	name := AssetName(v)
-	if m.baseURL == releasesURL {
-		switch runtime.GOOS {
-		case "windows":
-			name = "amir-vpn-windows-x64.zip"
-		case "linux":
-			if runtime.GOARCH == "amd64" {
-				name = "amir-vpn-linux-x64.tar.gz"
-			}
-		}
+	if m.baseURL == releasesURL && thePackage.releaseName != "" {
+		name = thePackage.releaseName
 	}
 	return Source{name, base + name, base + SumsFile, base + SigFile}
 }

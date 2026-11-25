@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -40,8 +39,8 @@ func TestManifestDownloadUsesExactURLsAndSurvivesRestart(t *testing.T) {
 	opts := Options{DataDir: dataDir, AppDir: appDir, Current: "1.0.0", Transports: func() []http.RoundTripper {
 		return []http.RoundTripper{server.Client().Transport}
 	}}
+	t.Setenv(ServerEnv, server.URL)
 	m := New(opts)
-	m.baseURL = server.URL + "/releases/download/"
 	if err := m.DownloadFrom(r.version, source); err != nil {
 		t.Fatal(err)
 	}
@@ -157,11 +156,8 @@ func TestProductionUpdatesUseOwnVersionedRelease(t *testing.T) {
 		source.SignatureURL != want+SigFile {
 		t.Fatalf("wrong download origin: %+v", source)
 	}
-	if runtime.GOOS == "windows" && source.File != "amir-vpn-windows-x64.zip" {
+	if source.File != "amir-vpn-windows-x64.zip" {
 		t.Fatalf("wrong Windows asset: %s", source.File)
-	}
-	if runtime.GOOS == "linux" && runtime.GOARCH == "amd64" && source.File != "amir-vpn-linux-x64.tar.gz" {
-		t.Fatalf("wrong Linux asset: %s", source.File)
 	}
 	if err := m.validateSource(v, source); err != nil {
 		t.Fatal(err)
