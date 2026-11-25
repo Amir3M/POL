@@ -49,7 +49,7 @@ Maintainer: AMiR VPN <43105035+Amir3M@users.noreply.github.com>
 Section: net
 Priority: optional
 Installed-Size: $installed_size
-Depends: libc6 (>= 2.35), libstdc++6, libgtk-3-0t64 | libgtk-3-0, libepoxy0, libegl1, libgl1, libxkbcommon0, ca-certificates
+Depends: libc6 (>= 2.35), libstdc++6, libgtk-3-0t64 | libgtk-3-0, libepoxy0, libegl1, libgl1, libgles2, libxkbcommon0, ca-certificates
 Recommends: libayatana-appindicator3-1, pkexec | policykit-1
 Homepage: https://github.com/Amir3M/POL
 Description: AMiR VPN desktop client
