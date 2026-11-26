@@ -130,6 +130,28 @@ class MainActivity : FlutterActivity() {
                 }
                 "isRunning" -> result.success(mobile.Mobile.running())
                 "connectionMode" -> result.success(CoreService.connectionMode(this))
+                "shareProxyStatus" -> result.success(AndroidShareProxy.status())
+                "setShareProxy" -> result.success(AndroidShareProxy.setEnabled(this, call.argument<Boolean>("on") == true))
+                "rotateShareProxyCredentials" -> result.success(AndroidShareProxy.rotateCredentials())
+                "selectShareProxyEndpoint" -> result.success(
+                    AndroidShareProxy.selectEndpoint(call.argument<String>("address").orEmpty()),
+                )
+                "shareProxyText" -> {
+                    val text = call.argument<String>("text")
+                    if (text.isNullOrBlank() || text.length > 2048) {
+                        result.error("share_failed", "invalid proxy details", null)
+                    } else {
+                        val send = Intent(Intent.ACTION_SEND)
+                            .setType("text/plain")
+                            .putExtra(Intent.EXTRA_TEXT, text)
+                        try {
+                            startActivity(Intent.createChooser(send, null))
+                            result.success(true)
+                        } catch (_: ActivityNotFoundException) {
+                            result.error("share_failed", "no sharing activity is available", null)
+                        }
+                    }
+                }
                 "showSpeed" -> result.success(CoreService.showSpeed(this))
                 "setShowSpeed" -> {
                     CoreService.setShowSpeed(this, call.argument<Boolean>("on") == true)

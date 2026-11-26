@@ -49,7 +49,7 @@ String? releaseFilePart(String os) => switch (os) {
 /// The manifest filename, also served by the local update test server.
 const updatesFile = 'updates.json';
 
-/// Checks AMiR VPN's latest stable GitHub release for the current platform.
+/// Checks AMiR VPN's newest stable GitHub release for the current platform.
 /// A development server or explicit manifest uses the legacy test path.
 /// null when [current] is the newest, or when there is no release yet; an
 /// error while the named release is not published yet, so the next look
@@ -185,6 +185,24 @@ Future<Release?> _latestAmirRelease(
   String os,
 ) async {
   if (!_amirFiles.containsKey(os)) return null;
+  if (os == 'android') {
+    // Android-only stable releases do not change the repository's latest
+    // release, which remains the update source for existing desktop clients.
+    const pageSize = 10;
+    for (var page = 1; ; page++) {
+      final (status, body) = await _get(
+        client,
+        'https://api.github.com/repos/$githubRepo/releases'
+        '?per_page=$pageSize&page=$page',
+        accept: 'application/vnd.github+json',
+      );
+      if (status == 404) return null;
+      if (status != 200) throw HttpException('HTTP $status');
+      final releases = jsonDecode(body);
+      final result = newestAmirAndroidRelease(releases, current: current);
+      if (result != null || (releases as List).length < pageSize) return result;
+    }
+  }
   final (status, body) = await _get(
     client,
     'https://api.github.com/repos/$githubRepo/releases/latest',
@@ -200,6 +218,22 @@ Future<Release?> _latestAmirRelease(
   );
 }
 
+/// Picks the highest compatible stable Android version listed on a page.
+Release? newestAmirAndroidRelease(Object? value, {required String current}) {
+  if (value is! List) throw const FormatException('Invalid GitHub releases');
+  Release? newest;
+  for (final entry in value) {
+    final candidate = amirReleaseFromGitHub(
+      entry,
+      os: 'android',
+      current: newest?.version ?? current,
+      skipMissingPackages: true,
+    );
+    if (candidate != null) newest = candidate;
+  }
+  return newest;
+}
+
 /// Parses only a stable release from AMiR VPN, with direct GitHub asset URLs
 /// for the running platform. Drafts and prereleases are never offered.
 Release? amirReleaseFromGitHub(
@@ -207,6 +241,7 @@ Release? amirReleaseFromGitHub(
   required String os,
   required String current,
   String platformVersion = '',
+  bool skipMissingPackages = false,
 }) {
   if (value is! Map<String, Object?>) {
     throw const FormatException('Invalid GitHub release');
@@ -238,6 +273,12 @@ Release? amirReleaseFromGitHub(
               _amirAssetUrl(version, asset['name']! as String))
         asset['name']! as String: asset['browser_download_url']! as String,
   };
+  if (skipMissingPackages &&
+      !assets.any(
+        (asset) => asset is Map && files.values.contains(asset['name']),
+      )) {
+    return null;
+  }
   if (!downloads.containsKey(_amirChecksums) ||
       !files.values.every(downloads.containsKey)) {
     throw const FormatException('No AMiR VPN update package for this system');

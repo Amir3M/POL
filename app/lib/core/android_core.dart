@@ -95,6 +95,68 @@ class VpnNotAllowed implements Exception {
   const VpnNotAllowed();
 }
 
+typedef AndroidShareEndpoint = ({
+  String address,
+  String networkType,
+  int port,
+  String username,
+  String password,
+});
+
+/// Private snapshot from the foreground Android service.
+class AndroidShareStatus {
+  const AndroidShareStatus({
+    this.enabled = false,
+    this.active = false,
+    this.endpoints = const [],
+    this.choices = const [],
+    this.error,
+  });
+
+  factory AndroidShareStatus.fromChannel(Map<Object?, Object?> value) {
+    final endpoints = value['endpoints'];
+    final choices = value['choices'];
+    return AndroidShareStatus(
+      enabled: value['enabled'] == true,
+      active: value['active'] == true,
+      error: value['error'] as String?,
+      choices: [
+        if (choices is List)
+          for (final choice in choices)
+            if (choice case {
+              'address': final String address,
+              'networkType': final String networkType,
+            })
+              (address: address, networkType: networkType),
+      ],
+      endpoints: [
+        if (endpoints is List)
+          for (final endpoint in endpoints)
+            if (endpoint case {
+              'address': final String address,
+              'networkType': final String networkType,
+              'port': final int port,
+              'username': final String username,
+              'password': final String password,
+            })
+              (
+                address: address,
+                networkType: networkType,
+                port: port,
+                username: username,
+                password: password,
+              ),
+      ],
+    );
+  }
+
+  final bool enabled;
+  final bool active;
+  final List<AndroidShareEndpoint> endpoints;
+  final List<({String address, String networkType})> choices;
+  final String? error;
+}
+
 /// The core on Android: it runs in this app's process. It starts with the
 /// proxy off while the UI is open, so settings and accounts work; turned
 /// on, a foreground service (android/.../CoreService.kt) keeps it running
@@ -174,6 +236,40 @@ class AndroidCore {
       if (e.code == 'vpn_denied') throw const VpnNotAllowed();
       throw CoreApiException(0, e.message ?? e.code);
     }
+  }
+
+  static Future<AndroidShareStatus> shareProxyStatus() async =>
+      AndroidShareStatus.fromChannel(
+        await _channel.invokeMapMethod<Object?, Object?>('shareProxyStatus') ??
+            const {},
+      );
+
+  static Future<AndroidShareStatus> setShareProxy(bool enabled) async =>
+      AndroidShareStatus.fromChannel(
+        await _channel.invokeMapMethod<Object?, Object?>(
+          'setShareProxy',
+          {'on': enabled},
+        ) ?? const {},
+      );
+
+  static Future<AndroidShareStatus> rotateShareProxyCredentials() async =>
+      AndroidShareStatus.fromChannel(
+        await _channel.invokeMapMethod<Object?, Object?>(
+          'rotateShareProxyCredentials',
+        ) ?? const {},
+      );
+
+  static Future<AndroidShareStatus> selectShareProxyEndpoint(
+    String address,
+  ) async => AndroidShareStatus.fromChannel(
+    await _channel.invokeMapMethod<Object?, Object?>(
+      'selectShareProxyEndpoint',
+      {'address': address},
+    ) ?? const {},
+  );
+
+  static Future<void> shareProxyText(String text) async {
+    await _channel.invokeMethod<bool>('shareProxyText', {'text': text});
   }
 
   /// The connection mode: 'vpn' (every app on the phone) or 'proxy' (only

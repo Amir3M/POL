@@ -2,7 +2,7 @@ name: arman_vpn
 description: "Cross-platform shell for the Go VPN core"
 publish_to: 'none'
 
-version: 1.0.1+161
+version: 1.0.2+162
 
 environment:
   sdk: ^3.13.5
@@ -13,6 +13,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   flutter_svg: 2.4.0
+  qr: 3.0.2
   file_selector: ^1.1.0
   intl: any
   material_ui: 1.11.0

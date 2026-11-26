@@ -12,18 +12,20 @@ const _linux = 'amir-vpn-linux-x64.tar.gz';
 Map<String, Object?> _release({
   String? modifiedFile,
   String? modifiedUrl,
+  String version = '1.1.0',
+  List<String> files = const [_apk, _installer, _portable, _linux],
 }) => {
   'draft': false,
   'prerelease': false,
-  'tag_name': 'v1.1.0',
-  'html_url': _page,
+  'tag_name': 'v$version',
+  'html_url': _page.replaceFirst('v1.1.0', 'v$version'),
   'assets': [
-    for (final file in [_apk, _installer, _portable, _linux, 'SHA256SUMS.txt'])
+    for (final file in [...files, 'SHA256SUMS.txt'])
       {
         'name': file,
         'browser_download_url': file == modifiedFile
             ? modifiedUrl
-            : '$_download/$file',
+            : '${_download.replaceFirst('v1.1.0', 'v$version')}/$file',
         'state': 'uploaded',
         'size': 10,
       },
@@ -58,6 +60,33 @@ void main() {
       final cached = releaseFromJson(release.toJson());
       expect(isAmirDownload(cached, os: os, platformVersion: ''), isTrue);
     }
+  });
+
+  test('Android sees an Android-only stable release separate from latest', () async {
+    final android = _release(version: '1.0.2', files: [_apk]);
+    final desktop = _release(version: '1.0.1');
+    final list = [
+      {..._release(version: '2.0.0', files: [_apk]), 'prerelease': true},
+      _release(version: '1.1.0', files: [_installer, _portable, _linux]),
+      desktop,
+      android,
+      _release(version: '1.0.0', files: [_apk]),
+    ];
+    final update = newestAmirAndroidRelease(list, current: '1.0.1')!;
+    expect(update.version, '1.0.2');
+    expect(
+      await downloadUrl(update, os: 'android', abi: 'arm64-v8a'),
+      'https://github.com/Amir3M/POL/releases/download/v1.0.2/$_apk',
+    );
+    expect(newestAmirAndroidRelease(list, current: '1.0.2'), isNull);
+    expect(
+      amirReleaseFromGitHub(desktop, os: 'windows', current: '1.0.1'),
+      isNull,
+    );
+    expect(
+      amirReleaseFromGitHub(desktop, os: 'linux', current: '1.0.0')?.version,
+      '1.0.1',
+    );
   });
 
   test('drafts, previews and non-new releases are skipped', () {

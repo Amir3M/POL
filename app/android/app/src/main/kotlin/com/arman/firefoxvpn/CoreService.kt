@@ -85,6 +85,7 @@ class CoreService : VpnService() {
                 turnOff(this@CoreService)
                 return
             }
+            AndroidShareProxy.refresh()
             val code = when {
                 mobile.Mobile.connectPending() -> ""
                 offline -> NO_NETWORK
@@ -247,6 +248,7 @@ class CoreService : VpnService() {
             return START_NOT_STICKY
         }
         on = true
+        AndroidShareProxy.attach(this)
         offline = reportedDown
         QuickTile.refresh(this)
         ConnectWidget.updateAll(this)
@@ -263,6 +265,7 @@ class CoreService : VpnService() {
 
     override fun onDestroy() {
         destroyed = true
+        AndroidShareProxy.detach(this)
         main.removeCallbacks(watchCountry)
         // A notification posted at the last moment goes too.
         getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
@@ -489,6 +492,7 @@ class CoreService : VpnService() {
 
         /** Keeps the mode; a running service switches to it at once. */
         fun setConnectionMode(context: Context, mode: String) {
+            if (mode != MODE_PROXY) AndroidShareProxy.disable()
             prefs(context).edit().putString(CONNECTION, if (mode == MODE_PROXY) MODE_PROXY else MODE_VPN).apply()
             reconnect(context)
         }
@@ -666,6 +670,7 @@ class CoreService : VpnService() {
 
         /** Turns the VPN and the proxy off; the core keeps its API. */
         fun turnOff(context: Context) {
+            AndroidShareProxy.disable()
             stopTunnel()
             if (mobile.Mobile.running()) mobile.Mobile.setOn(false)
             on = false
@@ -723,6 +728,7 @@ class CoreService : VpnService() {
 
         @Synchronized
         fun stopCore() {
+            AndroidShareProxy.disable()
             Tun2Socks.stop()
             if (mobile.Mobile.running()) mobile.Mobile.stop()
         }

@@ -176,6 +176,12 @@ type Daemon struct {
 		// and refusedUDPPath its executable.
 		refusedUDP, refusedUDPPath string
 	}
+	// sharedProxy is Android's explicitly enabled LAN proxy.
+	sharedProxy struct {
+		mu              sync.Mutex
+		session         *sharedProxySession
+		rotatedPassword string
+	}
 	// folderRequests counts requests to open the data folder; the tray
 	// opens it when the count in the status rises.
 	folderRequests atomic.Uint64
@@ -291,6 +297,7 @@ func (d *Daemon) loadSavedLocations() {
 // Run starts the dashboard and supervises the proxy engine until Shutdown.
 func (d *Daemon) Run() error {
 	defer close(d.finished)
+	defer d.CloseSharedProxy()
 	cfg := d.config()
 	logx.Info("service starting version=%s profile=%s data_dir=%s accounts=%d switch_threshold=%g%%", version.Current, evasion.Name(), d.paths.Dir, d.mgr.Len(), cfg.Accounts.SwitchThresholdPercent)
 	token, err := newLocalToken()
@@ -509,6 +516,9 @@ func (d *Daemon) setOn(on bool) {
 		d.connectFailure = ""
 	}
 	d.mu.Unlock()
+	if !on {
+		d.CloseSharedProxy()
+	}
 	if changed {
 		logx.Info("proxy turned on=%t", on)
 		d.RequestRestart()
@@ -564,6 +574,9 @@ func (d *Daemon) ProxyEndpoint() (addr, user, password string) {
 // (network.wait_for_network). Either way the last connection test no longer
 // says anything about the connection (StatusView.NetworkChangedAt).
 func (d *Daemon) NetworkChanged(up bool) {
+	if !up {
+		d.CloseSharedProxy()
+	}
 	netstate.Report(up)
 	d.networkChange(up)
 }
@@ -984,6 +997,13 @@ type settingsChange struct {
 // change live, and reports what needs a restart. The account order is not
 // changed here.
 func (d *Daemon) updateSettings(next config.Config, newPassword *string) (settingsChange, error) {
+	if d.privateDashboard {
+		d.sharedProxy.mu.Lock()
+		defer d.sharedProxy.mu.Unlock()
+		if d.sharedProxy.session != nil && !hostIsLoopbackListen(next.Proxy.Listen) {
+			return settingsChange{}, errors.New("the ordinary proxy must stay on loopback while sharing")
+		}
+	}
 	d.mu.Lock()
 	prev := d.cfg
 	d.mu.Unlock()

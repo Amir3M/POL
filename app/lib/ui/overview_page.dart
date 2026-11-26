@@ -19,6 +19,7 @@ import 'bypass_apps_page.dart';
 import 'connection_mode.dart';
 import 'format.dart';
 import 'port_dialog.dart';
+import 'share_proxy.dart';
 import 'widgets.dart';
 
 /// The home page: the switch, the state, where the traffic goes, and the
@@ -1324,207 +1325,17 @@ class _PhoneHome extends StatelessWidget {
           ],
           const Spacer(),
           if (settings.showAppModeSwitch && Platform.isAndroid) ...[
-            ListenableBuilder(
-              listenable: Listenable.merge([
-                AndroidCore.mode,
-                AndroidCore.appRoutingMode,
-                AndroidCore.selectedAppsCount,
-              ]),
-              builder: (context, _) {
-                final mode = AndroidCore.mode.value;
-                final routing = AndroidCore.appRoutingMode.value;
-                final selected = mode == 'proxy' ? 'proxy' : routing;
-                final port = portOf(proxy?.listen ?? '') ??
-                    portOf(status.state.address) ??
-                    10810;
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Center(
-                      child: _ModeSwitch(
-                        palette: p,
-                        accent: accent,
-                        selected: selected,
-                        onSelected: core.switchingProxy
-                            ? null
-                            : (newMode) async {
-                                if (newMode == 'proxy') {
-                                  await runShowingErrors(
-                                    context,
-                                    () => AndroidCore.setMode('proxy'),
-                                  );
-                                } else if (newMode == 'selected') {
-                                  if (AndroidCore.mode.value != 'vpn') {
-                                    await runShowingErrors(
-                                      context,
-                                      () => AndroidCore.setMode('vpn'),
-                                    );
-                                  }
-                                  await AndroidCore.setRoutingEnabled(true);
-                                  AndroidCore.appRoutingMode.value =
-                                      'selected';
-                                  try {
-                                    final r =
-                                        await AndroidCore.appRouting();
-                                    AndroidCore.selectedAppsCount.value =
-                                        r.chosenCount;
-                                  } catch (_) {}
-                                } else if (newMode == 'all') {
-                                  if (AndroidCore.mode.value != 'vpn') {
-                                    await runShowingErrors(
-                                      context,
-                                      () => AndroidCore.setMode('vpn'),
-                                    );
-                                  }
-                                  await AndroidCore.setRoutingEnabled(
-                                    false,
-                                  );
-                                  AndroidCore.appRoutingMode.value = 'all';
-                                }
-                              },
-                        onTapSelected: (modeValue) {
-                          if (modeValue == 'proxy') {
-                            _openPortSettings(context, status);
-                          } else if (modeValue == 'all') {
-                            _openAllAppsSettings();
-                          }
-                        },
-                        modes: [
-                          (
-                            value: 'all',
-                            icon: Icons.public_rounded,
-                            label: l.modeAllApps,
-                            tooltip: l.modeAllAppsHint,
-                          ),
-                          (
-                            value: 'selected',
-                            icon: Icons.apps_rounded,
-                            label: l.modeSelectedApps,
-                            tooltip: l.modeSelectedAppsHint,
-                          ),
-                          (
-                            value: 'proxy',
-                            icon: Icons.settings_ethernet_rounded,
-                            label: l.modeProxy,
-                            tooltip: '${l.proxyPort}: $port',
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (selected == 'proxy')
-                      Center(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(20),
-                          onTap: () => _openPortSettings(context, status),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 6,
-                            ),
-                            decoration: ShapeDecoration(
-                              color: p.card,
-                              shape: StadiumBorder(
-                                side: BorderSide(color: p.cardBorder),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.tune_rounded,
-                                  size: 14,
-                                  color: accent,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '${l.proxyPort}: $port',
-                                  style:
-                                      theme.textTheme.bodySmall?.copyWith(
-                                    color: p.text,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Icon(
-                                  Icons.edit_outlined,
-                                  size: 13,
-                                  color: p.muted,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (selected == 'selected')
-                      Center(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(20),
-                          onTap: () => _openBypassApps(context),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 6,
-                            ),
-                            decoration: ShapeDecoration(
-                              color: p.card,
-                              shape: StadiumBorder(
-                                side: BorderSide(color: p.cardBorder),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.apps_rounded,
-                                  size: 14,
-                                  color: accent,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  l.selectedAppsCount(
-                                    '${AndroidCore.selectedAppsCount.value}',
-                                  ),
-                                  style:
-                                      theme.textTheme.bodySmall?.copyWith(
-                                    color: p.text,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.chevron_left_rounded,
-                                  size: 16,
-                                  color: p.muted,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      Center(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(20),
-                          onTap: _openAllAppsSettings,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            child: Text(
-                              l.allTrafficThroughVpn,
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: p.muted,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
+            _AndroidQuickModes(
+              core: core,
+              status: status,
+              settings: settings,
+              palette: p,
+              accent: accent,
+              onOpenPort: () => _openPortSettings(context, status),
+              onOpenBypassApps: () => _openBypassApps(context),
+              onOpenAllApps: _openAllAppsSettings,
+              onOpenAccounts: () =>
+                  _openAccounts(context, core, settings, onOpenAccounts),
             ),
           ] else if (settings.showAppModeSwitch &&
               (status.systemProxySupported || status.tunSupported)) ...[
@@ -1634,6 +1445,372 @@ class _PhoneHome extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Android uses two balanced rows so translated labels can wrap at large
+/// font sizes and every option keeps a usable touch target.
+class _AndroidQuickModes extends StatefulWidget {
+  const _AndroidQuickModes({
+    required this.core,
+    required this.status,
+    required this.settings,
+    required this.palette,
+    required this.accent,
+    required this.onOpenPort,
+    required this.onOpenBypassApps,
+    required this.onOpenAllApps,
+    required this.onOpenAccounts,
+  });
+
+  final CoreController core;
+  final CoreStatus status;
+  final AppSettings settings;
+  final _HomePalette palette;
+  final Color accent;
+  final VoidCallback onOpenPort;
+  final VoidCallback onOpenBypassApps;
+  final VoidCallback onOpenAllApps;
+  final VoidCallback onOpenAccounts;
+
+  @override
+  State<_AndroidQuickModes> createState() => _AndroidQuickModesState();
+}
+
+class _AndroidQuickModesState extends State<_AndroidQuickModes>
+    with WidgetsBindingObserver {
+  AndroidShareStatus _share = const AndroidShareStatus();
+  Timer? _poll;
+  bool _busy = false;
+  bool _reading = false;
+  int _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startPolling();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _poll?.cancel();
+      _poll = null;
+    }
+  }
+
+  void _startPolling() {
+    unawaited(_refresh());
+    _poll ??= Timer.periodic(const Duration(seconds: 2), (_) {
+      if (_share.enabled) unawaited(_refresh());
+    });
+  }
+
+  Future<void> _refresh() async {
+    if (!mounted || _reading || _busy) return;
+    final generation = _generation;
+    _reading = true;
+    try {
+      final next = await AndroidCore.shareProxyStatus();
+      if (mounted && !_busy && generation == _generation &&
+          (next.enabled || _share.enabled)) {
+        setState(() => _share = next);
+      }
+    } on PlatformException {
+      if (mounted && _share.enabled && generation == _generation) {
+        setState(() => _share = const AndroidShareStatus());
+      }
+    } finally {
+      _reading = false;
+    }
+  }
+
+  bool get _farsi => Localizations.localeOf(context).languageCode == 'fa';
+  String get _label => _farsi ? 'اشتراک پراکسی' : 'Share Proxy';
+
+  Future<bool> _confirm() async {
+    if (widget.settings.shareProxyConfirmed) return true;
+    final l = AppLocalizations.of(context);
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(_farsi ? 'اشتراک پراکسی فعال شود؟' : 'Enable Share Proxy?'),
+        content: Text(
+          _farsi
+              ? 'دستگاه‌های شبکهٔ محلی با نام کاربری و رمز می‌توانند وصل شوند. '
+                'احراز هویت SOCKS5 ارتباط دستگاه تا گوشی را رمزنگاری نمی‌کند. '
+                'فقط در شبکه‌ای که به آن اعتماد داری روشن کن.'
+              : 'Devices on this local network can connect using a username '
+                'and password. SOCKS5 authentication does not encrypt the '
+                'connection from a device to this phone. Share on trusted '
+                'networks only.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(_farsi ? 'فعال‌سازی اشتراک' : 'Enable sharing'),
+          ),
+        ],
+      ),
+    );
+    if (approved != true || !mounted) return false;
+    widget.settings.update(shareProxyConfirmed: true);
+    return true;
+  }
+
+  Future<void> _switch(String mode) async {
+    if (_busy) return;
+    _generation++;
+    setState(() => _busy = true);
+    try {
+      final core = widget.core;
+      if (mode == 'share') {
+        if (!await _confirm() || !mounted) return;
+        if (widget.status.totalAccounts == 0) {
+          widget.onOpenAccounts();
+          return;
+        }
+        await core.useLocalProxyListener();
+        if (AndroidCore.mode.value != 'proxy') {
+          await AndroidCore.setMode('proxy');
+        }
+        if (core.status?.proxyOn != true) {
+          await core.setOn(true);
+        }
+        final next = await AndroidCore.setShareProxy(true);
+        if (mounted) setState(() => _share = next);
+        _testAfterPowerOn(core);
+        return;
+      }
+
+      await AndroidCore.setShareProxy(false);
+      if (mounted) setState(() => _share = const AndroidShareStatus());
+      if (mode == 'proxy') {
+        await core.useLocalProxyListener();
+        if (AndroidCore.mode.value != 'proxy') {
+          await AndroidCore.setMode('proxy');
+        }
+        return;
+      }
+      if (AndroidCore.mode.value != 'vpn') {
+        await AndroidCore.setMode('vpn');
+      }
+      await AndroidCore.setRoutingEnabled(mode == 'selected');
+      AndroidCore.appRoutingMode.value = mode;
+      final routing = await AndroidCore.appRouting();
+      AndroidCore.selectedAppsCount.value = routing.chosenCount;
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+        unawaited(_refresh());
+      }
+    }
+  }
+
+  Future<void> _updateListener(
+    Future<AndroidShareStatus> Function() update,
+  ) async {
+    _generation++;
+    setState(() => _busy = true);
+    try {
+      final next = await update();
+      if (mounted) setState(() => _share = next);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: Listenable.merge([
+      AndroidCore.mode,
+      AndroidCore.appRoutingMode,
+      AndroidCore.selectedAppsCount,
+    ]),
+    builder: (context, _) {
+      final l = AppLocalizations.of(context);
+      final p = widget.palette;
+      final mode = AndroidCore.mode.value;
+      final selected = mode != 'proxy'
+          ? AndroidCore.appRoutingMode.value
+          : _share.enabled
+          ? 'share'
+          : 'proxy';
+      final status = widget.status;
+      final endpoint = _share.endpoints.firstOrNull;
+      final port = endpoint?.port ??
+          portOf(status.proxy?.listen ?? '') ??
+          portOf(status.state.address) ??
+          10810;
+      final locked = widget.core.switchingProxy || _busy;
+      final options = <_Mode>[
+        (value: 'all', icon: Icons.public_rounded, label: l.modeAllApps,
+         tooltip: l.modeAllAppsHint),
+        (value: 'selected', icon: Icons.apps_rounded, label: l.modeSelectedApps,
+         tooltip: l.modeSelectedAppsHint),
+        (value: 'proxy', icon: Icons.settings_ethernet_rounded,
+         label: l.modeProxy, tooltip: '${l.proxyPort}: $port'),
+        (value: 'share', icon: Icons.share_outlined, label: _label, tooltip: ''),
+      ];
+
+      VoidCallback? action(_Mode option) {
+        if (locked) return null;
+        if (option.value != selected) {
+          return () => runShowingErrors(context, () => _switch(option.value));
+        }
+        return switch (selected) {
+          'proxy' => widget.onOpenPort,
+          'selected' => widget.onOpenBypassApps,
+          'all' => widget.onOpenAllApps,
+          _ => null,
+        };
+      }
+
+      Widget cell(_Mode option) {
+        final current = selected == option.value;
+        final foreground = current ? p.text : p.muted;
+        final onTap = action(option);
+        final btn = Semantics(
+          selected: current,
+          button: true,
+          child: Material(
+            color: current
+                ? widget.accent.withValues(alpha: 0.2)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: onTap,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(option.icon, size: 17, color: foreground),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          option.label,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: foreground,
+                            fontWeight: current ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        return Expanded(
+          child: option.tooltip.isEmpty
+              ? btn
+              : Tooltip(message: option.tooltip, child: btn),
+        );
+      }
+
+      return Column(
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: p.card,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: p.cardBorder),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Column(
+                children: [
+                  Row(children: [cell(options[0]), cell(options[1])]),
+                  Row(children: [cell(options[2]), cell(options[3])]),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (selected == 'share')
+            ShareProxyCard(
+              endpoints: [
+                for (final entry in _share.endpoints)
+                  ShareProxyEndpoint(
+                    address: entry.address,
+                    networkType: entry.networkType,
+                  ),
+              ],
+              active: _share.active,
+              connected: status.confirmedBy(widget.core.lastTest),
+              busy: locked,
+              port: port,
+              username: endpoint?.username ?? '',
+              password: endpoint?.password ?? '',
+              onRotate: () => _updateListener(
+                AndroidCore.rotateShareProxyCredentials,
+              ),
+              alternatives: [
+                for (final choice in _share.choices)
+                  ShareProxyEndpoint(
+                    address: choice.address,
+                    networkType: choice.networkType,
+                  ),
+              ],
+              onSelectEndpoint: (address) => _updateListener(
+                () => AndroidCore.selectShareProxyEndpoint(address),
+              ),
+              onShare: AndroidCore.shareProxyText,
+              problem: switch (_share.error) {
+                'bind_failed' => _farsi
+                    ? 'پراکسی نتوانست روی این شبکه باز شود.'
+                    : 'Could not open the proxy listener on this network.',
+                'proxy_mode_required' => _farsi
+                    ? 'اشتراک پراکسی به حالت پراکسی نیاز دارد.'
+                    : 'Proxy mode is required for sharing.',
+                _ => null,
+              },
+            )
+          else
+            TextButton(
+              onPressed: locked
+                  ? null
+                  : switch (selected) {
+                      'proxy' => widget.onOpenPort,
+                      'selected' => widget.onOpenBypassApps,
+                      _ => widget.onOpenAllApps,
+                    },
+              child: Text(
+                switch (selected) {
+                  'proxy' => '${l.proxyPort}: $port',
+                  'selected' => l.selectedAppsCount(
+                    '${AndroidCore.selectedAppsCount.value}',
+                  ),
+                  _ => l.allTrafficThroughVpn,
+                },
+                textAlign: TextAlign.center,
+                style: TextStyle(color: p.muted),
+              ),
+            ),
+        ],
+      );
+    },
+  );
 }
 
 /// A frosted card on the home background.

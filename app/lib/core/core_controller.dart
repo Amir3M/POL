@@ -334,6 +334,19 @@ class CoreController extends ChangeNotifier {
     await refresh(accountsToo: true);
   }
 
+  /// Restricts the ordinary Android proxy listener to this device.
+  Future<void> useLocalProxyListener() => _act(() async {
+    final api = _require();
+    final config = await api.settings();
+    final proxy = config['proxy'];
+    if (proxy is! Map<String, Object?>) return;
+    final address = proxy['listen'] as String? ?? '';
+    final local = '127.0.0.1:${portOf(address) ?? 10810}';
+    if (address == local) return;
+    proxy['listen'] = local;
+    await api.saveSettings(config);
+  });
+
   /// Moves the proxy (SOCKS5 and HTTP) to [port]; the core restarts it.
   Future<void> setProxyPort(int port) => editSettings((config) {
     final proxy = config['proxy'];

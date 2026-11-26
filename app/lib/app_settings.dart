@@ -39,7 +39,8 @@ class AppSettings extends ChangeNotifier {
   /// Android: the per-app mode switch on the home screen (all apps,
   /// selected apps, proxy). Off by default: most people never change it,
   /// and it takes the room the location and quota cards want.
-  bool showAppModeSwitch = false;
+  bool showAppModeSwitch = Platform.isAndroid;
+  bool shareProxyConfirmed = false;
 
   /// How a new account signs in (the accounts page's row).
   SignInMethod signInMethod = SignInMethod.api;
@@ -199,6 +200,7 @@ class AppSettings extends ChangeNotifier {
         s.firstRun = j['welcome_done'] != true;
         s.showPublicIp = j['show_public_ip'] == true;
         s.showAppModeSwitch = j['show_app_mode_switch'] == true;
+        s.shareProxyConfirmed = j['share_proxy_confirmed'] == true;
         s.signInMethod =
             SignInMethod.values.asNameMap()[j['signin_method']] ??
             s.signInMethod;
@@ -252,6 +254,7 @@ class AppSettings extends ChangeNotifier {
     bool? firstRun,
     bool? showPublicIp,
     bool? showAppModeSwitch,
+    bool? shareProxyConfirmed,
     DateTime? lowQuotaDismissedAt,
     String? dismissedUpdate,
     DateTime? updateCheckedAt,
@@ -276,6 +279,7 @@ class AppSettings extends ChangeNotifier {
     this.autoConnect = autoConnect ?? this.autoConnect;
     this.showPublicIp = showPublicIp ?? this.showPublicIp;
     this.showAppModeSwitch = showAppModeSwitch ?? this.showAppModeSwitch;
+    this.shareProxyConfirmed = shareProxyConfirmed ?? this.shareProxyConfirmed;
     this.lowQuotaDismissedAt = lowQuotaDismissedAt ?? this.lowQuotaDismissedAt;
     this.dismissedUpdate = dismissedUpdate ?? this.dismissedUpdate;
     this.updateCheckedAt = updateCheckedAt ?? this.updateCheckedAt;
@@ -309,6 +313,7 @@ class AppSettings extends ChangeNotifier {
           'welcome_done': !firstRun,
           'show_public_ip': showPublicIp,
           'show_app_mode_switch': showAppModeSwitch,
+          if (Platform.isAndroid) 'share_proxy_confirmed': shareProxyConfirmed,
           'low_quota_dismissed_at': lowQuotaDismissedAt?.toIso8601String(),
           'dismissed_update': dismissedUpdate,
           'update_checked_at': updateCheckedAt?.toIso8601String(),
