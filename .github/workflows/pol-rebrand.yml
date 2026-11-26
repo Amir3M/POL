@@ -6,7 +6,7 @@ permissions:
   contents: read
 concurrency:
   group: amir-vpn-stable-release
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   plan:
     runs-on: ubuntu-24.04

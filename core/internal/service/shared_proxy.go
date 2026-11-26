@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"net/netip"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -62,14 +63,26 @@ func (d *Daemon) SetSharedProxy(address string, prefixBits int) (SharedProxyInfo
 	if err := d.sharedProxyAvailable(); err != nil {
 		return SharedProxyInfo{}, err
 	}
+	cfg := d.config().Proxy
+	_, portText, err := net.SplitHostPort(cfg.Listen)
+	if err != nil {
+		d.closeSharedProxyLocked()
+		return SharedProxyInfo{}, errors.New("the local proxy port is invalid")
+	}
+	port, err := strconv.ParseUint(portText, 10, 16)
+	if err != nil || port == 0 {
+		d.closeSharedProxyLocked()
+		return SharedProxyInfo{}, errors.New("the local proxy port is invalid")
+	}
 	if running := d.sharedProxy.session; running != nil {
-		if running.info.Address == ip.String() && running.subnet == subnet {
+		if running.info.Address == ip.String() && running.subnet == subnet &&
+			running.info.Port == int(port) {
 			return running.info, nil
 		}
 		d.closeSharedProxyLocked()
 	}
 
-	listener, err := net.ListenTCP("tcp4", net.TCPAddrFromAddrPort(netip.AddrPortFrom(ip, 0)))
+	listener, err := net.ListenTCP("tcp4", net.TCPAddrFromAddrPort(netip.AddrPortFrom(ip, uint16(port))))
 	if err != nil {
 		return SharedProxyInfo{}, err
 	}
@@ -77,7 +90,6 @@ func (d *Daemon) SetSharedProxy(address string, prefixBits int) (SharedProxyInfo
 		Address: ip.String(),
 		Port:    listener.Addr().(*net.TCPAddr).Port,
 	}
-	cfg := d.config().Proxy
 	info.Username, info.Password = cfg.Username, cfg.Password
 	if d.sharedProxy.rotatedPassword != "" {
 		info.Username, info.Password = "share", d.sharedProxy.rotatedPassword
@@ -179,7 +191,7 @@ func (d *Daemon) newSharedProxyAccess(info SharedProxyInfo) *sharedProxyAccess {
 	}
 	server := proxy.NewSOCKSServer(access, config.HandshakeTimeout, config.IdleTimeout, sharedProxyMaxConnections)
 	server.Auth = proxy.SOCKSCredentials(info.Username, info.Password)
-	server.Notices, server.Conns, server.Inbound = d.notices, d.conns, "share"
+	server.Inbound = "share"
 	server.Transport = func() string {
 		if engine := d.currentEngine(); engine != nil {
 			return engine.currentTransport()
