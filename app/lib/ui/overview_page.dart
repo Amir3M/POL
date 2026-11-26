@@ -679,7 +679,6 @@ class _ModeSwitch extends StatelessWidget {
     required this.modes,
     required this.selected,
     required this.onSelected,
-    this.onTapSelected,
   });
 
   final _HomePalette palette;
@@ -690,8 +689,6 @@ class _ModeSwitch extends StatelessWidget {
   /// Null while a change is under way.
   final ValueChanged<String>? onSelected;
 
-  /// Called when the already-chosen mode is tapped (e.g. to open its settings).
-  final ValueChanged<String>? onTapSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -706,11 +703,7 @@ class _ModeSwitch extends StatelessWidget {
       final color = chosen ? p.text : p.muted;
       Widget child = InkWell(
         customBorder: const StadiumBorder(),
-        onTap: onSelected == null
-            ? null
-            : chosen
-                ? (onTapSelected != null ? () => onTapSelected!(m.value) : null)
-                : () => onSelected(m.value),
+        onTap: onSelected == null || chosen ? null : () => onSelected(m.value),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
