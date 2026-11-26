@@ -1,12 +1,18 @@
 package service
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net"
 	"net/netip"
 	"testing"
 	"time"
+
+	xproxy "golang.org/x/net/proxy"
+
+	"github.com/armanlife/arman-vpn-client/core/internal/routing"
 )
 
 func TestSharedProxySubnetRestrictsLAN(t *testing.T) {
@@ -87,5 +93,81 @@ func TestSharedProxyRequiresSOCKSAuthentication(t *testing.T) {
 	}
 	if reply != [2]byte{5, 0xff} {
 		t.Fatalf("accepted a client that offered only no-auth: %v", reply)
+	}
+}
+
+func TestSharedProxyAuthenticatedRoundTrip(t *testing.T) {
+	d, fixture := runLazyDaemon(t)
+	// The ordinary proxy would send this destination directly. The share
+	// must carry it through the fixture instead, even with that rule set.
+	router, err := routing.New(routing.Config{Dir: t.TempDir(), Direct: []string{"full:echo.invalid"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := router.Decide(context.Background(), "echo.invalid", nil); got != routing.Direct {
+		t.Fatalf("fixture does not select direct routing: %v", got)
+	}
+	d.currentEngine().routed.SetRouter(router)
+
+	login := SharedProxyInfo{Username: "share", Password: "fixture-only"}
+	access := d.newSharedProxyAccess(login)
+	defer access.close()
+	// Use a loopback transport so this test does not depend on an available
+	// private host interface. Exercise the same authenticated server and
+	// opener the LAN listener passes accepted sockets to.
+	ln, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			if client, ok := access.track(conn); ok {
+				go access.server.ServeConn(client)
+			}
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	dial := func(password string) (net.Conn, error) {
+		dialer, err := xproxy.SOCKS5("tcp", ln.Addr().String(), &xproxy.Auth{
+			User: login.Username, Password: password,
+		}, &net.Dialer{})
+		if err != nil {
+			return nil, err
+		}
+		return dialer.(xproxy.ContextDialer).DialContext(ctx, "tcp", lazyEchoTarget)
+	}
+	if conn, err := dial("incorrect"); err == nil {
+		_ = conn.Close()
+		t.Fatal("shared proxy accepted incorrect credentials")
+	}
+	if fixture.connects.Load() != 0 {
+		t.Fatal("an unauthenticated connection reached the upstream")
+	}
+
+	conn, err := dial(login.Password)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	deadline, _ := ctx.Deadline()
+	_ = conn.SetDeadline(deadline)
+	want := bytes.Repeat([]byte("shared proxy fixture\n"), 512)
+	if _, err := conn.Write(want); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]byte, len(want))
+	if _, err := io.ReadFull(conn, got); err != nil || !bytes.Equal(got, want) {
+		t.Fatalf("VPN fixture did not echo the shared payload: %v", err)
+	}
+	if fixture.passes.Load() != 1 || fixture.connects.Load() == 0 {
+		t.Fatalf("round trip bypassed the fixture: passes=%d connections=%d",
+			fixture.passes.Load(), fixture.connects.Load())
 	}
 }
