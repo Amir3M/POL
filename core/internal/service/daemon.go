@@ -95,12 +95,20 @@ type engineState struct {
 // stopped, waiting for an account, or restarting after a settings change.
 type Daemon struct {
 	paths DataPaths
+	// The last passed connection test logged (testPassRepeats), under mu.
+	testPassPlace string
+	testPassAt    time.Time
 	// notices outlives engine restarts, so the dashboard can still explain
 	// a refused request after the proxy restarted.
 	notices *proxy.Notices
 	// conns lists the proxy's connections for the dashboard's Connections
 	// (memory only); it too outlives engine restarts.
 	conns *proxy.Connections
+	// usage counts the data used each day; nil in tests that build a
+	// Daemon by hand.
+	usage *usageRecorder
+	// edgeScan lets one spare-edge scan run at a time (edges.go).
+	edgeScan edgeScan
 	// sessionKey signs the dashboard's session cookies.
 	sessionKey []byte
 	// autoTesting is set while an automatic connection test runs.
@@ -266,6 +274,7 @@ func NewDaemon(paths DataPaths, forceVerbose bool) (*Daemon, error) {
 		sessionKey:   sessionKey,
 		notices:      &proxy.Notices{},
 		conns:        &proxy.Connections{},
+		usage:        newUsageRecorder(paths.Usage),
 		routing:      routingState{wake: make(chan struct{}, 1)},
 		forceVerbose: forceVerbose,
 		store:        store,
@@ -280,6 +289,10 @@ func NewDaemon(paths DataPaths, forceVerbose bool) (*Daemon, error) {
 	}
 	d.signins = newSignInRegistry(d)
 	d.loadSavedLocations()
+	loadEdges(paths.Edges)
+	// A recommended server that does not answer makes this device look for
+	// spare addresses of its own, in the background.
+	proxy.OnSpareEdgesNeeded(d.spareEdgesNeeded)
 	return d, nil
 }
 
@@ -338,6 +351,7 @@ func (d *Daemon) Run() error {
 	d.applyRouting(d.config().Routing)
 	go d.runRoutingUpdates()
 	go d.watchNetwork()
+	go d.recordUsage()
 	d.superviseEngine()
 	d.CloseTunListener()
 	d.signInProxy.close()
@@ -408,6 +422,7 @@ func (d *Daemon) superviseEngine() {
 			d.mu.Unlock()
 			close(engineStopped)
 			engine.stop()
+			d.noteEngineUsage(engine)
 			if stopping {
 				return
 			}
@@ -592,11 +607,15 @@ func (d *Daemon) networkChange(up bool) {
 	if !up {
 		return
 	}
+	// Another network: Mozilla's server's own address and the user's
+	// transport may work again.
+	proxy.ForgetEdgeFailures()
 	engine := d.currentEngine()
 	if engine == nil {
 		d.RequestRestart() // a start waiting for the network goes on
 		return
 	}
+	engine.resetTransport()
 	controller := engine.currentController()
 	if controller == nil {
 		// Asleep: the next connection connects on the new network, without

@@ -1,14 +1,12 @@
 # AMiR VPN
 
-AMiR VPN brings a new visual identity to the public source of [Arman VPN v1.0.19](https://github.com/armanlife/arman-vpn-client/releases/tag/v1.0.19). The Android, Windows, and Linux apps share the rounded logo, AMiR VPN name, and the light-to-black gradient on the home screen.
+AMiR VPN brings a new visual identity to the public source of [Arman VPN](https://github.com/armanlife/arman-vpn-client). AMiR VPN 1.0.3 integrates the public connection core from [Arman VPN v1.0.20](https://github.com/armanlife/arman-vpn-client/releases/tag/v1.0.20). The Android, Windows, and Linux apps share the rounded logo, AMiR VPN name, and the light-to-black gradient on the home screen.
 
 | Platform | Latest stable downloads |
 | --- | --- |
 | Android 7 and above | [Signed APK](https://github.com/Amir3M/POL/releases/latest/download/amir-vpn-android.apk) |
 | Windows x64 | [Installer](https://github.com/Amir3M/POL/releases/latest/download/amir-vpn-windows-setup-x64.exe) or [portable ZIP](https://github.com/Amir3M/POL/releases/latest/download/amir-vpn-windows-x64.zip) |
 | Linux x64 | [Debian / Ubuntu package](https://github.com/Amir3M/POL/releases/latest/download/amir-vpn-linux-x64.deb) or [portable archive](https://github.com/Amir3M/POL/releases/latest/download/amir-vpn-linux-x64.tar.gz) |
-
-The standalone Android **1.0.2** update is available from the [Android release](https://github.com/Amir3M/POL/releases/tag/v1.0.2). Android 1.0.1 users can download it once to migrate to the Android-specific stable update search.
 
 Use **About → Check for updates** to find a newer stable AMiR VPN release in this repository and open the download for your platform. Install the package after download. To move from an earlier preview to v1, download the stable package from this table once. On Debian or Ubuntu, install the downloaded package with `sudo apt install ./amir-vpn-linux-x64.deb`, then open AMiR VPN from the app menu or run `amir-vpn`. For the portable download, extract the archive and run `./arman-vpn` from the `amir-vpn` directory.
 
@@ -24,7 +22,7 @@ Use the private IPv4 address and configured port with an authenticated SOCKS5 cl
 
 Share Proxy forwards TCP through the VPN upstream and fails closed when that upstream cannot carry the request. SOCKS5 UDP and connected-device statistics are unavailable in this release. Wi-Fi and hotspot behavior, sleep, and traffic over a real Mozilla account should be checked on physical devices.
 
-The connection and sign-in implementation comes from the public Arman VPN source at [492dd7f](https://github.com/armanlife/arman-vpn-client/commit/492dd7f389c539790cde3d07167535d28788a0d0). The Windows installer uses a separate application registration and folder. The optional desktop TUN service retains its upstream identity.
+The connection and sign-in implementation is based on the public Arman VPN source through [6692c4f](https://github.com/armanlife/arman-vpn-client/commit/6692c4f5da016ebcf75e4fd7732991ee46cb1ca5). The public core uses its built-in connection profile. The Windows installer uses a separate application registration and folder. The optional desktop TUN service retains its upstream identity.
 
-- [Arman VPN source and documentation](https://github.com/armanlife/arman-vpn-client/tree/v1.0.19)
+- [Arman VPN source and documentation](https://github.com/armanlife/arman-vpn-client/tree/v1.0.20)
 - [GNU General Public License v3](LICENSE)

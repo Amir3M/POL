@@ -144,7 +144,6 @@ jobs:
           sed -i 's/  pol-vpn-release\.apk$/  amir-vpn-android.apk/' amir-vpn-android.apk.sha256
           sha256sum --check amir-vpn-android.apk.sha256
       - name: Enable Android emulator acceleration
-        if: needs.plan.outputs.android_only == 'true'
         run: |
           printf '%s\n' 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
             sudo tee /etc/udev/rules.d/99-pol-kvm.rules >/dev/null
@@ -153,7 +152,6 @@ jobs:
           sudo udevadm settle
           test -r /dev/kvm && test -w /dev/kvm
       - name: Run the signed release APK and capture Android screenshots
-        if: needs.plan.outputs.android_only == 'true'
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 35
@@ -163,7 +161,7 @@ jobs:
           disable-animations: true
           script: python3 scripts/smoke-android-home.py out/amir-vpn-android.apk android-smoke
       - name: Save Android screenshots
-        if: always() && needs.plan.outputs.android_only == 'true'
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: android-home-smoke
@@ -288,7 +286,7 @@ jobs:
         run: |
           sha256sum --check amir-vpn-android.apk.sha256
           sha256sum --check amir-vpn-linux-x64.deb.sha256
-          printf '# Arman VPN version: %s\n' "$VERSION" > SHA256SUMS.txt
+          printf '# AMiR VPN version: %s\n' "$VERSION" > SHA256SUMS.txt
           sha256sum amir-vpn-android.apk amir-vpn-windows-x64.zip \
             amir-vpn-windows-setup-x64.exe amir-vpn-linux-x64.tar.gz \
             amir-vpn-linux-x64.deb pol-vpn-source.tar.gz pol-vpn-notices.tar.gz >> SHA256SUMS.txt
@@ -311,7 +309,7 @@ jobs:
           fi
           gh release create "$tag" release/* --repo "$GITHUB_REPOSITORY" \
             --verify-tag --latest --title "AMiR VPN $VERSION" \
-            --notes 'Stable Android, Windows x64, and Linux x64 builds based on the public source of Arman VPN, distributed under GPL-3.0. Linux uses Flutter 3.50.1 to fix an OpenGL rendering offset that could clip the window. Source, notices, and checksums accompany the downloads. Live service connectivity is unverified.'
+            --notes 'Stable Android, Windows x64, and Linux x64 builds with the public Arman VPN v1.0.20 connection core. The update improves transport recovery and location tests while retaining Share Proxy on Android. Source, notices, and checksums accompany the downloads under GPL-3.0. Live service connectivity is unverified.'
       - name: Verify latest stable release and assets
         env:
           GH_TOKEN: ${{ github.token }}
